@@ -1,67 +1,65 @@
 import { ipcMain, WebContents } from "electron";
+import { IPC } from "../shared/ipc-channels";
 import type { Window } from "./Window";
 
 export class EventManager {
   private mainWindow: Window;
+  private readonly registeredHandles: string[] = [];
+  private readonly registeredListeners: { channel: string; handler: (...args: any[]) => void }[] = [];
 
   constructor(mainWindow: Window) {
     this.mainWindow = mainWindow;
     this.setupEventHandlers();
   }
 
+  // Wraps ipcMain.handle and tracks the channel for cleanup
+  private handle(channel: string, handler: (...args: any[]) => any): void {
+    ipcMain.handle(channel, handler);
+    this.registeredHandles.push(channel);
+  }
+
+  // Wraps ipcMain.on and tracks the channel/handler for cleanup
+  private on(channel: string, handler: (...args: any[]) => void): void {
+    ipcMain.on(channel, handler);
+    this.registeredListeners.push({ channel, handler });
+  }
+
   private setupEventHandlers(): void {
     // Tab management events
     this.handleTabEvents();
-
+    
     // Sidebar events
     this.handleSidebarEvents();
-
     // Page content events
     this.handlePageContentEvents();
-
     // Dark mode events
     this.handleDarkModeEvents();
-
-    // Debug events
-    this.handleDebugEvents();
   }
 
   private handleTabEvents(): void {
-    // Create new tab
-    ipcMain.handle("create-tab", (_, url?: string) => {
+    // Create tab event
+    this.handle(IPC.CREATE_TAB, (_, url?: string) => {
       const newTab = this.mainWindow.createTab(url);
       return { id: newTab.id, title: newTab.title, url: newTab.url };
     });
 
-    // Close tab
-    ipcMain.handle("close-tab", (_, id: string) => {
+    // Close tab event
+    this.handle(IPC.CLOSE_TAB, (_, id: string) => {
       this.mainWindow.closeTab(id);
     });
 
-    // Switch tab
-    ipcMain.handle("switch-tab", (_, id: string) => {
+    // Switch tab event
+    this.handle(IPC.SWITCH_TAB, (_, id: string) => {
       this.mainWindow.switchActiveTab(id);
     });
 
-    // Get tabs
-    ipcMain.handle("get-tabs", () => {
-      const activeTabId = this.mainWindow.activeTab?.id;
-      return this.mainWindow.allTabs.map((tab) => ({
-        id: tab.id,
-        title: tab.title,
-        url: tab.url,
-        isActive: activeTabId === tab.id,
-      }));
+    // Get tabs event
+    this.handle(IPC.GET_TABS, () => {
+      return this.mainWindow.getTabsInfo();
     });
 
-    // Navigation (for compatibility with existing code)
-    ipcMain.handle("navigate-to", (_, url: string) => {
-      if (this.mainWindow.activeTab) {
-        this.mainWindow.activeTab.loadURL(url);
-      }
-    });
-
-    ipcMain.handle("navigate-tab", async (_, tabId: string, url: string) => {
+    // Navigate tab event
+    this.handle(IPC.NAVIGATE_TAB, async (_, tabId: string, url: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         await tab.loadURL(url);
@@ -70,26 +68,7 @@ export class EventManager {
       return false;
     });
 
-    ipcMain.handle("go-back", () => {
-      if (this.mainWindow.activeTab) {
-        this.mainWindow.activeTab.goBack();
-      }
-    });
-
-    ipcMain.handle("go-forward", () => {
-      if (this.mainWindow.activeTab) {
-        this.mainWindow.activeTab.goForward();
-      }
-    });
-
-    ipcMain.handle("reload", () => {
-      if (this.mainWindow.activeTab) {
-        this.mainWindow.activeTab.reload();
-      }
-    });
-
-    // Tab-specific navigation handlers
-    ipcMain.handle("tab-go-back", (_, tabId: string) => {
+    this.handle(IPC.TAB_GO_BACK, (_, tabId: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.goBack();
@@ -98,7 +77,7 @@ export class EventManager {
       return false;
     });
 
-    ipcMain.handle("tab-go-forward", (_, tabId: string) => {
+    this.handle(IPC.TAB_GO_FORWARD, (_, tabId: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.goForward();
@@ -107,7 +86,7 @@ export class EventManager {
       return false;
     });
 
-    ipcMain.handle("tab-reload", (_, tabId: string) => {
+    this.handle(IPC.TAB_RELOAD, (_, tabId: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.reload();
@@ -116,7 +95,7 @@ export class EventManager {
       return false;
     });
 
-    ipcMain.handle("tab-screenshot", async (_, tabId: string) => {
+    this.handle(IPC.TAB_SCREENSHOT, async (_, tabId: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         const image = await tab.screenshot();
@@ -125,7 +104,7 @@ export class EventManager {
       return null;
     });
 
-    ipcMain.handle("tab-run-js", async (_, tabId: string, code: string) => {
+    this.handle(IPC.TAB_RUN_JS, async (_, tabId: string, code: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         return await tab.runJs(code);
@@ -133,8 +112,7 @@ export class EventManager {
       return null;
     });
 
-    // Tab info
-    ipcMain.handle("get-active-tab-info", () => {
+    this.handle(IPC.GET_ACTIVE_TAB_INFO, () => {
       const activeTab = this.mainWindow.activeTab;
       if (activeTab) {
         return {
@@ -150,34 +128,28 @@ export class EventManager {
   }
 
   private handleSidebarEvents(): void {
-    // Toggle sidebar
-    ipcMain.handle("toggle-sidebar", () => {
+    this.handle(IPC.TOGGLE_SIDEBAR, () => {
       this.mainWindow.sidebar.toggle();
       this.mainWindow.updateAllBounds();
       return true;
     });
 
-    // Chat message
-    ipcMain.handle("sidebar-chat-message", async (_, request) => {
-      // The LLMClient now handles getting the screenshot and context directly
+    this.handle(IPC.CHAT_SEND_MESSAGE, async (_, request) => {
       await this.mainWindow.sidebar.client.sendChatMessage(request);
     });
 
-    // Clear chat
-    ipcMain.handle("sidebar-clear-chat", () => {
+    this.handle(IPC.CHAT_CLEAR, () => {
       this.mainWindow.sidebar.client.clearMessages();
       return true;
     });
 
-    // Get messages
-    ipcMain.handle("sidebar-get-messages", () => {
+    this.handle(IPC.CHAT_GET_MESSAGES, () => {
       return this.mainWindow.sidebar.client.getMessages();
     });
   }
 
   private handlePageContentEvents(): void {
-    // Get page content
-    ipcMain.handle("get-page-content", async () => {
+    this.handle(IPC.GET_PAGE_CONTENT, async () => {
       if (this.mainWindow.activeTab) {
         try {
           return await this.mainWindow.activeTab.getTabHtml();
@@ -189,8 +161,7 @@ export class EventManager {
       return null;
     });
 
-    // Get page text
-    ipcMain.handle("get-page-text", async () => {
+    this.handle(IPC.GET_PAGE_TEXT, async () => {
       if (this.mainWindow.activeTab) {
         try {
           return await this.mainWindow.activeTab.getTabText();
@@ -202,8 +173,7 @@ export class EventManager {
       return null;
     });
 
-    // Get current URL
-    ipcMain.handle("get-current-url", () => {
+    this.handle(IPC.GET_CURRENT_URL, () => {
       if (this.mainWindow.activeTab) {
         return this.mainWindow.activeTab.url;
       }
@@ -212,44 +182,36 @@ export class EventManager {
   }
 
   private handleDarkModeEvents(): void {
-    // Dark mode broadcasting
-    ipcMain.on("dark-mode-changed", (event, isDarkMode) => {
+    this.on(IPC.DARK_MODE_CHANGED, (event, isDarkMode) => {
       this.broadcastDarkMode(event.sender, isDarkMode);
     });
   }
 
-  private handleDebugEvents(): void {
-    // Ping test
-    ipcMain.on("ping", () => console.log("pong"));
-  }
-
   private broadcastDarkMode(sender: WebContents, isDarkMode: boolean): void {
-    // Send to topbar
     if (this.mainWindow.topBar.view.webContents !== sender) {
-      this.mainWindow.topBar.view.webContents.send(
-        "dark-mode-updated",
-        isDarkMode
-      );
+      this.mainWindow.topBar.view.webContents.send(IPC.DARK_MODE_UPDATED, isDarkMode);
     }
 
-    // Send to sidebar
     if (this.mainWindow.sidebar.view.webContents !== sender) {
-      this.mainWindow.sidebar.view.webContents.send(
-        "dark-mode-updated",
-        isDarkMode
-      );
+      this.mainWindow.sidebar.view.webContents.send(IPC.DARK_MODE_UPDATED, isDarkMode);
     }
 
-    // Send to all tabs
     this.mainWindow.allTabs.forEach((tab) => {
       if (tab.webContents !== sender) {
-        tab.webContents.send("dark-mode-updated", isDarkMode);
+        tab.webContents.send(IPC.DARK_MODE_UPDATED, isDarkMode);
       }
     });
   }
 
-  // Clean up event listeners
+  // Removes only the handlers/listeners registered by this instance
   public cleanup(): void {
-    ipcMain.removeAllListeners();
+    for (const channel of this.registeredHandles) {
+      ipcMain.removeHandler(channel);
+    }
+    for (const { channel, handler } of this.registeredListeners) {
+      ipcMain.removeListener(channel, handler);
+    }
+    this.registeredHandles.length = 0;
+    this.registeredListeners.length = 0;
   }
 }

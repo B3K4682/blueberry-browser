@@ -1,23 +1,14 @@
 import { WebContents } from "electron";
-import { streamText, type LanguageModel, type CoreMessage } from "ai";
+import { streamText, type LanguageModel, type ModelMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
 import { join } from "path";
+import { IPC } from "../shared/ipc-channels";
+import type { ChatRequest, StreamChunk } from "../shared/types";
 import type { Window } from "./Window";
 
-// Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
-
-interface ChatRequest {
-  message: string;
-  messageId: string;
-}
-
-interface StreamChunk {
-  content: string;
-  isComplete: boolean;
-}
 
 type LLMProvider = "openai" | "anthropic";
 
@@ -35,18 +26,17 @@ export class LLMClient {
   private readonly provider: LLMProvider;
   private readonly modelName: string;
   private readonly model: LanguageModel | null;
-  private messages: CoreMessage[] = [];
+  private messages: ModelMessage[] = [];
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
     this.provider = this.getProvider();
     this.modelName = this.getModelName();
     this.model = this.initializeModel();
-
     this.logInitializationStatus();
   }
 
-  // Set the window reference after construction to avoid circular dependencies
+  // Deferred setter to avoid circular dependency with Window
   setWindow(window: Window): void {
     this.window = window;
   }
@@ -54,7 +44,7 @@ export class LLMClient {
   private getProvider(): LLMProvider {
     const provider = process.env.LLM_PROVIDER?.toLowerCase();
     if (provider === "anthropic") return "anthropic";
-    return "openai"; // Default to OpenAI
+    return "openai";
   }
 
   private getModelName(): string {
@@ -103,46 +93,30 @@ export class LLMClient {
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
     try {
-      // Get screenshot from active tab if available
       let screenshot: string | null = null;
-      if (this.window) {
-        const activeTab = this.window.activeTab;
-        if (activeTab) {
-          try {
-            const image = await activeTab.screenshot();
-            screenshot = image.toDataURL();
-          } catch (error) {
-            console.error("Failed to capture screenshot:", error);
-          }
+      if (this.window?.activeTab) {
+        try {
+          const image = await this.window.activeTab.screenshot();
+          screenshot = image.toDataURL();
+        } catch (error) {
+          console.error("Failed to capture screenshot:", error);
         }
       }
 
-      // Build user message content with screenshot first, then text
       const userContent: any[] = [];
-      
-      // Add screenshot as the first part if available
-      if (screenshot) {
-        userContent.push({
-          type: "image",
-          image: screenshot,
-        });
-      }
-      
-      // Add text content
-      userContent.push({
-        type: "text",
-        text: request.message,
-      });
 
-      // Create user message in CoreMessage format
-      const userMessage: CoreMessage = {
+      if (screenshot) {
+        userContent.push({ type: "image", image: screenshot });
+      }
+
+      userContent.push({ type: "text", text: request.message });
+
+      const userMessage: ModelMessage = {
         role: "user",
         content: userContent.length === 1 ? request.message : userContent,
       };
-      
-      this.messages.push(userMessage);
 
-      // Send updated messages to renderer
+      this.messages.push(userMessage);
       this.sendMessagesToRenderer();
 
       if (!this.model) {
@@ -153,7 +127,7 @@ export class LLMClient {
         return;
       }
 
-      const messages = await this.prepareMessagesWithContext(request);
+      const messages = await this.prepareMessagesWithContext();
       await this.streamResponse(messages, request.messageId);
     } catch (error) {
       console.error("Error in LLM request:", error);
@@ -166,38 +140,32 @@ export class LLMClient {
     this.sendMessagesToRenderer();
   }
 
-  getMessages(): CoreMessage[] {
+  getMessages(): ModelMessage[] {
     return this.messages;
   }
 
   private sendMessagesToRenderer(): void {
-    this.webContents.send("chat-messages-updated", this.messages);
+    this.webContents.send(IPC.CHAT_MESSAGES_UPDATED, this.messages);
   }
 
-  private async prepareMessagesWithContext(_request: ChatRequest): Promise<CoreMessage[]> {
-    // Get page context from active tab
+  private async prepareMessagesWithContext(): Promise<ModelMessage[]> {
     let pageUrl: string | null = null;
     let pageText: string | null = null;
-    
-    if (this.window) {
-      const activeTab = this.window.activeTab;
-      if (activeTab) {
-        pageUrl = activeTab.url;
-        try {
-          pageText = await activeTab.getTabText();
-        } catch (error) {
-          console.error("Failed to get page text:", error);
-        }
+
+    if (this.window?.activeTab) {
+      pageUrl = this.window.activeTab.url;
+      try {
+        pageText = await this.window.activeTab.getTabText();
+      } catch (error) {
+        console.error("Failed to get page text:", error);
       }
     }
 
-    // Build system message
-    const systemMessage: CoreMessage = {
+    const systemMessage: ModelMessage = {
       role: "system",
       content: this.buildSystemPrompt(pageUrl, pageText),
     };
 
-    // Include all messages in history (system + conversation)
     return [systemMessage, ...this.messages];
   }
 
@@ -231,26 +199,19 @@ export class LLMClient {
   }
 
   private async streamResponse(
-    messages: CoreMessage[],
+    messages: ModelMessage[],
     messageId: string
   ): Promise<void> {
-    if (!this.model) {
-      throw new Error("Model not initialized");
-    }
+    if (!this.model) throw new Error("Model not initialized");
 
-    try {
-      const result = await streamText({
-        model: this.model,
-        messages,
-        temperature: DEFAULT_TEMPERATURE,
-        maxRetries: 3,
-        abortSignal: undefined, // Could add abort controller for cancellation
-      });
+    const result = await streamText({
+      model: this.model,
+      messages,
+      temperature: DEFAULT_TEMPERATURE,
+      maxRetries: 3,
+    });
 
-      await this.processStream(result.textStream, messageId);
-    } catch (error) {
-      throw error; // Re-throw to be handled by the caller
-    }
+    await this.processStream(result.textStream, messageId);
   }
 
   private async processStream(
@@ -259,51 +220,25 @@ export class LLMClient {
   ): Promise<void> {
     let accumulatedText = "";
 
-    // Create a placeholder assistant message
-    const assistantMessage: CoreMessage = {
-      role: "assistant",
-      content: "",
-    };
-    
-    // Keep track of the index for updates
     const messageIndex = this.messages.length;
-    this.messages.push(assistantMessage);
+    this.messages.push({ role: "assistant", content: "" });
 
     for await (const chunk of textStream) {
       accumulatedText += chunk;
 
-      // Update assistant message content
-      this.messages[messageIndex] = {
-        role: "assistant",
-        content: accumulatedText,
-      };
+      this.messages[messageIndex] = { role: "assistant", content: accumulatedText };
       this.sendMessagesToRenderer();
-
-      this.sendStreamChunk(messageId, {
-        content: chunk,
-        isComplete: false,
-      });
+      this.sendStreamChunk(messageId, { content: chunk, isComplete: false });
     }
 
-    // Final update with complete content
-    this.messages[messageIndex] = {
-      role: "assistant",
-      content: accumulatedText,
-    };
+    this.messages[messageIndex] = { role: "assistant", content: accumulatedText };
     this.sendMessagesToRenderer();
-
-    // Send the final complete signal
-    this.sendStreamChunk(messageId, {
-      content: accumulatedText,
-      isComplete: true,
-    });
+    this.sendStreamChunk(messageId, { content: accumulatedText, isComplete: true });
   }
 
   private handleStreamError(error: unknown, messageId: string): void {
     console.error("Error streaming from LLM:", error);
-
-    const errorMessage = this.getErrorMessage(error);
-    this.sendErrorMessage(messageId, errorMessage);
+    this.sendErrorMessage(messageId, this.getErrorMessage(error));
   }
 
   private getErrorMessage(error: unknown): string {
@@ -311,40 +246,26 @@ export class LLMClient {
       return "An unexpected error occurred. Please try again.";
     }
 
-    const message = error.message.toLowerCase();
+    const msg = error.message.toLowerCase();
 
-    if (message.includes("401") || message.includes("unauthorized")) {
+    if (msg.includes("401") || msg.includes("unauthorized"))
       return "Authentication error: Please check your API key in the .env file.";
-    }
-
-    if (message.includes("429") || message.includes("rate limit")) {
+    if (msg.includes("429") || msg.includes("rate limit"))
       return "Rate limit exceeded. Please try again in a few moments.";
-    }
-
-    if (
-      message.includes("network") ||
-      message.includes("fetch") ||
-      message.includes("econnrefused")
-    ) {
+    if (msg.includes("network") || msg.includes("fetch") || msg.includes("econnrefused"))
       return "Network error: Please check your internet connection.";
-    }
-
-    if (message.includes("timeout")) {
+    if (msg.includes("timeout"))
       return "Request timeout: The service took too long to respond. Please try again.";
-    }
 
     return "Sorry, I encountered an error while processing your request. Please try again.";
   }
 
   private sendErrorMessage(messageId: string, errorMessage: string): void {
-    this.sendStreamChunk(messageId, {
-      content: errorMessage,
-      isComplete: true,
-    });
+    this.sendStreamChunk(messageId, { content: errorMessage, isComplete: true });
   }
 
   private sendStreamChunk(messageId: string, chunk: StreamChunk): void {
-    this.webContents.send("chat-response", {
+    this.webContents.send(IPC.CHAT_RESPONSE, {
       messageId,
       content: chunk.content,
       isComplete: chunk.isComplete,

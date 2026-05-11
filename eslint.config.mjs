@@ -27,5 +27,6 @@ export default tseslint.config(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
+  { "prettier/prettier": ["error", { "endOfLine": "auto" }] },
   eslintConfigPrettier
 )

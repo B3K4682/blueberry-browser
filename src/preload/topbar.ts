@@ -1,41 +1,43 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
+import { IPC } from "../shared/ipc-channels";
+import type { TabInfo } from "../shared/types";
 
-// TopBar specific APIs
 const topBarAPI = {
-  // Tab management
   createTab: (url?: string) =>
-    electronAPI.ipcRenderer.invoke("create-tab", url),
+    electronAPI.ipcRenderer.invoke(IPC.CREATE_TAB, url),
   closeTab: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("close-tab", tabId),
+    electronAPI.ipcRenderer.invoke(IPC.CLOSE_TAB, tabId),
   switchTab: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("switch-tab", tabId),
-  getTabs: () => electronAPI.ipcRenderer.invoke("get-tabs"),
+    electronAPI.ipcRenderer.invoke(IPC.SWITCH_TAB, tabId),
+  getTabs: () => electronAPI.ipcRenderer.invoke(IPC.GET_TABS),
 
-  // Tab navigation
   navigateTab: (tabId: string, url: string) =>
-    electronAPI.ipcRenderer.invoke("navigate-tab", tabId, url),
+    electronAPI.ipcRenderer.invoke(IPC.NAVIGATE_TAB, tabId, url),
   goBack: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("tab-go-back", tabId),
+    electronAPI.ipcRenderer.invoke(IPC.TAB_GO_BACK, tabId),
   goForward: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("tab-go-forward", tabId),
+    electronAPI.ipcRenderer.invoke(IPC.TAB_GO_FORWARD, tabId),
   reload: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("tab-reload", tabId),
+    electronAPI.ipcRenderer.invoke(IPC.TAB_RELOAD, tabId),
 
-  // Tab actions
   tabScreenshot: (tabId: string) =>
-    electronAPI.ipcRenderer.invoke("tab-screenshot", tabId),
+    electronAPI.ipcRenderer.invoke(IPC.TAB_SCREENSHOT, tabId),
   tabRunJs: (tabId: string, code: string) =>
-    electronAPI.ipcRenderer.invoke("tab-run-js", tabId, code),
+    electronAPI.ipcRenderer.invoke(IPC.TAB_RUN_JS, tabId, code),
 
-  // Sidebar
   toggleSidebar: () =>
-    electronAPI.ipcRenderer.invoke("toggle-sidebar"),
+    electronAPI.ipcRenderer.invoke(IPC.TOGGLE_SIDEBAR),
+
+  // Event-driven tab updates from main process
+  onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => {
+    electronAPI.ipcRenderer.on(IPC.TABS_UPDATED, (_, tabs) => callback(tabs));
+  },
+  removeTabsUpdatedListener: () => {
+    electronAPI.ipcRenderer.removeAllListeners(IPC.TABS_UPDATED);
+  },
 };
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("electron", electronAPI);
@@ -49,4 +51,3 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.topBarAPI = topBarAPI;
 }
-

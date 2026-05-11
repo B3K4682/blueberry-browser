@@ -1,62 +1,47 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
+import { IPC } from "../shared/ipc-channels";
+import type { ChatRequest, ChatResponse } from "../shared/types";
 
-interface ChatRequest {
-  message: string;
-  context: {
-    url: string | null;
-    content: string | null;
-    text: string | null;
-  };
-  messageId: string;
-}
-
-interface ChatResponse {
-  messageId: string;
-  content: string;
-  isComplete: boolean;
-}
-
-// Sidebar specific APIs
 const sidebarAPI = {
-  // Chat functionality
-  sendChatMessage: (request: Partial<ChatRequest>) =>
-    electronAPI.ipcRenderer.invoke("sidebar-chat-message", request),
+  sendChatMessage: (request: ChatRequest) =>
+    electronAPI.ipcRenderer.invoke(IPC.CHAT_SEND_MESSAGE, request),
 
-  clearChat: () => electronAPI.ipcRenderer.invoke("sidebar-clear-chat"),
+  clearChat: () =>
+    electronAPI.ipcRenderer.invoke(IPC.CHAT_CLEAR),
 
-  getMessages: () => electronAPI.ipcRenderer.invoke("sidebar-get-messages"),
+  getMessages: () =>
+    electronAPI.ipcRenderer.invoke(IPC.CHAT_GET_MESSAGES),
 
   onChatResponse: (callback: (data: ChatResponse) => void) => {
-    electronAPI.ipcRenderer.on("chat-response", (_, data) => callback(data));
+    electronAPI.ipcRenderer.on(IPC.CHAT_RESPONSE, (_, data) => callback(data));
   },
 
   onMessagesUpdated: (callback: (messages: any[]) => void) => {
-    electronAPI.ipcRenderer.on("chat-messages-updated", (_, messages) =>
+    electronAPI.ipcRenderer.on(IPC.CHAT_MESSAGES_UPDATED, (_, messages) =>
       callback(messages)
     );
   },
 
   removeChatResponseListener: () => {
-    electronAPI.ipcRenderer.removeAllListeners("chat-response");
+    electronAPI.ipcRenderer.removeAllListeners(IPC.CHAT_RESPONSE);
   },
 
   removeMessagesUpdatedListener: () => {
-    electronAPI.ipcRenderer.removeAllListeners("chat-messages-updated");
+    electronAPI.ipcRenderer.removeAllListeners(IPC.CHAT_MESSAGES_UPDATED);
   },
 
-  // Page content access
-  getPageContent: () => electronAPI.ipcRenderer.invoke("get-page-content"),
-  getPageText: () => electronAPI.ipcRenderer.invoke("get-page-text"),
-  getCurrentUrl: () => electronAPI.ipcRenderer.invoke("get-current-url"),
+  getPageContent: () =>
+    electronAPI.ipcRenderer.invoke(IPC.GET_PAGE_CONTENT),
+  getPageText: () =>
+    electronAPI.ipcRenderer.invoke(IPC.GET_PAGE_TEXT),
+  getCurrentUrl: () =>
+    electronAPI.ipcRenderer.invoke(IPC.GET_CURRENT_URL),
 
-  // Tab information
-  getActiveTabInfo: () => electronAPI.ipcRenderer.invoke("get-active-tab-info"),
+  getActiveTabInfo: () =>
+    electronAPI.ipcRenderer.invoke(IPC.GET_ACTIVE_TAB_INFO),
 };
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("electron", electronAPI);

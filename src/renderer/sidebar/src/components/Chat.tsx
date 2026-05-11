@@ -2,18 +2,11 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
-import { ArrowUp, Square, Sparkles, Plus } from 'lucide-react'
+import { ArrowUp, Plus } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
 import { cn } from '@common/lib/utils'
 import { Button } from '@common/components/Button'
-
-interface Message {
-    id: string
-    role: 'user' | 'assistant'
-    content: string
-    timestamp: number
-    isStreaming?: boolean
-}
+import type { Message } from '@shared/types'
 
 // Auto-scroll hook
 const useAutoScroll = (messages: Message[]) => {
@@ -52,13 +45,12 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
     const [currentIndex, setCurrentIndex] = useState(0)
 
     useEffect(() => {
-        if (currentIndex < content.length) {
-            const timer = setTimeout(() => {
-                setDisplayedContent(content.slice(0, currentIndex + 1))
-                setCurrentIndex(currentIndex + 1)
-            }, 10)
-            return () => clearTimeout(timer)
-        }
+        if (currentIndex >= content.length) return
+        const timer = setTimeout(() => {
+            setDisplayedContent(content.slice(0, currentIndex + 1))
+            setCurrentIndex(currentIndex + 1)
+        }, 10)
+        return () => clearTimeout(timer)
     }, [content, currentIndex])
 
     return (
@@ -86,7 +78,7 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
             remarkPlugins={[remarkGfm, remarkBreaks]}
             components={{
                 // Custom code block styling
-                code: ({ node, className, children, ...props }) => {
+                code: ({ className, children, ...props }) => {
                     const inline = !className
                     return inline ? (
                         <code className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground" {...props}>
