@@ -1,5 +1,6 @@
 import { saveEvent, resetAllStores, getRituals } from "./storage";
 import { generateMetadata, generatePlaywrightScript } from "./ai";
+import { useRitualStore } from "./store";
 import type {
   RitualCandidate,
   WorkflowEvent,
@@ -91,7 +92,15 @@ export function installDevHelpers(engine: DetectionEngine): void {
     reset: async () => {
       await resetAllStores();
       engine.reset();
-      console.log("[dev] all stores cleared, engine reset");
+      useRitualStore.setState({
+        currentCandidate: null,
+        isCardVisible: false,
+        isGenerating: false,
+        rituals: [],
+        activeReplay: null,
+      });
+      window.ritualAPI.setViewMode("hidden");
+      console.log("[dev] all stores cleared, engine + zustand reset");
     },
     fakeCandidate,
     testAI: async (
@@ -104,10 +113,16 @@ export function installDevHelpers(engine: DetectionEngine): void {
       console.log("[dev] generated playwright script:\n" + script);
       return { candidate, metadata, script };
     },
+    pokeCandidate: (
+      domainSequence: string[] = ["linear.app", "notion.so", "mail.google.com"]
+    ) => {
+      useRitualStore.getState().showCandidate(fakeCandidate(domainSequence));
+    },
+    store: useRitualStore,
   };
 
   (window as unknown as { _ritualDev?: typeof helpers })._ritualDev = helpers;
   console.log(
-    "[dev] window._ritualDev ready — try _ritualDev.seed(['linear.app','notion.so','mail.google.com']) then browse those sites, or _ritualDev.testAI() to call OpenAI directly"
+    "[dev] window._ritualDev ready — helpers: seed, snapshot, reset, fakeCandidate, testAI, pokeCandidate, store"
   );
 }

@@ -1,58 +1,54 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getRecentEvents, getRituals, saveEvent } from "./storage";
+import { saveEvent } from "./storage";
 import { DetectionEngine } from "./detection";
+import { useRitualStore } from "./store";
 import { installDevHelpers } from "./_dev";
-import type { WorkflowEvent, RitualCandidate } from "@shared/ritual-types";
+import type { WorkflowEvent } from "@shared/ritual-types";
 
 export const RitualApp: React.FC = () => {
   const [bootStatus, setBootStatus] = useState<"booting" | "ready" | "error">(
     "booting"
   );
-  const [counts, setCounts] = useState<{ events: number; rituals: number }>({
-    events: 0,
-    rituals: 0,
-  });
+  const [eventCount, setEventCount] = useState(0);
   const subscribed = useRef(false);
-  // Initialize the detection engine
+
+  // Store slices for the debug-attribute readout
+  const ritualsCount = useRitualStore((s) => s.rituals.length);
+  const isCardVisible = useRitualStore((s) => s.isCardVisible);
+  const isGenerating = useRitualStore((s) => s.isGenerating);
+  const currentCandidateId = useRitualStore(
+    (s) => s.currentCandidate?.id ?? ""
+  );
+
   const engine = useMemo(() => new DetectionEngine(), []);
 
   // Persists one incoming event and logs it for verification.
   async function handleIncomingEvent(event: WorkflowEvent): Promise<void> {
     try {
       await saveEvent(event);
-      setCounts((prev) => ({ ...prev, events: prev.events + 1 }));
+      setEventCount((prev) => prev + 1);
       await engine.ingest(event);
     } catch (err) {
       console.error("[ritual] failed to handle event:", event, err);
     }
   }
 
-  // Logs every emitted candidate.
-  function handleCandidate(candidate: RitualCandidate): void {
-    console.log(
-      `[ritual] candidate: ${candidate.domainSequence.join(" > ")} ` +
-        `(occurrences=${candidate.occurrences}, confidence=${candidate.confidence})`,
-      candidate
-    );
-  }
-
   useEffect(() => {
     let cancelled = false;
+    const store = useRitualStore.getState();
 
     async function boot() {
       try {
-        const [events, rituals] = await Promise.all([
-          getRecentEvents(1000),
-          getRituals(),
-        ]);
+        await store.loadRituals();
         if (cancelled) return;
-        setCounts({ events: events.length, rituals: rituals.length });
         setBootStatus("ready");
-        console.log(
-          `[ritual] storage ready — ${events.length} event(s), ${rituals.length} ritual(s)`
-        );
+        console.log("[ritual] boot complete");
 
-        engine.onCandidate(handleCandidate);
+        // Route Detection Engine candidates directly into the store
+        engine.onCandidate((candidate) => {
+          useRitualStore.getState().showCandidate(candidate);
+        });
+
         installDevHelpers(engine);
 
         if (!subscribed.current) {
@@ -62,7 +58,7 @@ export const RitualApp: React.FC = () => {
         }
       } catch (err) {
         if (cancelled) return;
-        console.error("[ritual] storage failed to open:", err);
+        console.error("[ritual] boot failed:", err);
         setBootStatus("error");
       }
     }
@@ -82,8 +78,11 @@ export const RitualApp: React.FC = () => {
   return (
     <div style={{ display: "none" }} aria-hidden>
       <span data-ritual-status={bootStatus} />
-      <span data-ritual-events={counts.events} />
-      <span data-ritual-rituals={counts.rituals} />
+      <span data-ritual-events={eventCount} />
+      <span data-ritual-rituals={ritualsCount} />
+      <span data-ritual-card-visible={isCardVisible ? "true" : "false"} />
+      <span data-ritual-generating={isGenerating ? "true" : "false"} />
+      <span data-ritual-candidate-id={currentCandidateId} />
     </div>
   );
 };

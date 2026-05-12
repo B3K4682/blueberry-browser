@@ -1,4 +1,5 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
+import type { RitualViewMode } from "../shared/ritual-ipc";
 import type {
   RitualCandidate,
   RitualMetadata,
@@ -14,6 +15,7 @@ interface RitualAPI {
     candidate: RitualCandidate,
     title: string
   ) => Promise<string>;
+  setViewMode: (mode: RitualViewMode) => void;
 }
 
 declare global {

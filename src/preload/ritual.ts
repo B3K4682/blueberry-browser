@@ -1,6 +1,6 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
-import { RITUAL_IPC } from "../shared/ritual-ipc";
+import { RITUAL_IPC, type RitualViewMode } from "../shared/ritual-ipc";
 import type {
   RitualCandidate,
   RitualMetadata,
@@ -40,6 +40,11 @@ const ritualAPI = {
       candidate,
       title
     ),
+
+  // Tells main to resize the ritual WebContentsView for the requested surface
+  setViewMode: (mode: RitualViewMode): void => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.SET_VIEW_MODE, mode);
+  },
 };
 
 if (process.contextIsolated) {

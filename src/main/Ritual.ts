@@ -17,6 +17,9 @@ export class Ritual {
   private mode: RitualViewMode = "hidden";
   private replayBannerOffset = 0;
   private readonly ai: RitualAI;
+  private viewModeListener:
+    | ((_evt: Electron.IpcMainEvent, mode: RitualViewMode) => void)
+    | null = null;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -145,12 +148,20 @@ export class Ritual {
       (_evt, candidate: RitualCandidate, title: string) =>
         this.ai.generatePlaywrightScript(candidate, title)
     );
+
+    // the store calls this on every visibility change
+    this.viewModeListener = (_evt, mode) => this.setViewMode(mode);
+    ipcMain.on(RITUAL_IPC.SET_VIEW_MODE, this.viewModeListener);
   }
 
   destroy(): void {
     try {
       ipcMain.removeHandler(RITUAL_IPC.GENERATE_METADATA);
       ipcMain.removeHandler(RITUAL_IPC.GENERATE_PLAYWRIGHT);
+      if (this.viewModeListener) {
+        ipcMain.removeListener(RITUAL_IPC.SET_VIEW_MODE, this.viewModeListener);
+        this.viewModeListener = null;
+      }
     } catch {
       // Handlers may already be removed if destroy is called twice.
     }
