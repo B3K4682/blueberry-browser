@@ -18,6 +18,8 @@ interface TopBarAPI {
 
   toggleSidebar: () => Promise<void>;
   toggleRitualPanel: () => void;
+  onRitualPanelState: (callback: (open: boolean) => void) => void;
+  removeRitualPanelStateListener: () => void;
 
   onReplayState: (callback: (state: ReplayState) => void) => void;
   removeReplayStateListener: () => void;

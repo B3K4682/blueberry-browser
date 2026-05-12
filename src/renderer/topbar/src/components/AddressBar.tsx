@@ -21,6 +21,13 @@ export const AddressBar: React.FC = () => {
         }
     }, [activeTab, isEditing])
 
+    // Source of truth for the toolbar icon: the ritual renderer's real state
+    useEffect(() => {
+        if (!window.topBarAPI) return
+        window.topBarAPI.onRitualPanelState((open) => setIsRitualPanelOpen(open))
+        return () => window.topBarAPI.removeRitualPanelStateListener()
+    }, [])
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!url.trim()) return
@@ -111,7 +118,6 @@ export const AddressBar: React.FC = () => {
     }
 
     const toggleRitualPanel = () => {
-        setIsRitualPanelOpen((v) => !v)
         if (window.topBarAPI) {
             window.topBarAPI.toggleRitualPanel()
         }

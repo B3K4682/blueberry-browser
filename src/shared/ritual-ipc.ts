@@ -25,6 +25,10 @@ export const RITUAL_IPC = {
   // can flip its `isPanelOpen` flag.
   PANEL_TOGGLE_REQUESTED: "ritual:panel-toggle-requested",
 
+  // Ritual renderer -> main -> topbar: real panel-open boolean so the
+  // toolbar Sparkles icon stays in sync when the panel closes itself.
+  PANEL_STATE_CHANGED: "ritual:panel-state-changed",
+
   // Main -> topbar renderer: replay state changed (banner needs to update).
   REPLAY_STATE: "ritual:replay-state",
 

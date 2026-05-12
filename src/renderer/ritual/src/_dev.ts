@@ -119,11 +119,12 @@ export function installDevHelpers(engine: DetectionEngine): void {
     ) => {
       useRitualStore.getState().showCandidate(fakeCandidate(domainSequence));
     },
+    seedDemo: () => useRitualStore.getState().loadDemoRituals(),
     store: useRitualStore,
   };
 
   (window as unknown as { _ritualDev?: typeof helpers })._ritualDev = helpers;
   console.log(
-    "[dev] window._ritualDev ready — helpers: seed, snapshot, reset, fakeCandidate, testAI, pokeCandidate, store"
+    "[dev] window._ritualDev ready — helpers: seed, snapshot, reset, fakeCandidate, testAI, pokeCandidate, seedDemo, store"
   );
 }

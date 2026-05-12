@@ -50,6 +50,11 @@ const ritualAPI = {
     electronAPI.ipcRenderer.send(RITUAL_IPC.SET_VIEW_MODE, mode);
   },
 
+  // Reports the real panel-open boolean so the topbar can sync its icon
+  broadcastPanelState: (open: boolean): void => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.PANEL_STATE_CHANGED, open);
+  },
+
   // Main forwards toolbar-icon clicks here so the store can toggle the panel
   onPanelToggleRequested: (callback: () => void): void => {
     electronAPI.ipcRenderer.on(RITUAL_IPC.PANEL_TOGGLE_REQUESTED, () =>

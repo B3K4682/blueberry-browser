@@ -219,6 +219,18 @@ export class EventManager {
         console.error("[replay] failed to forward stop to ritual:", err);
       }
     });
+
+    // Real panel-open state from the ritual renderer -> topbar icon
+    this.on(RITUAL_IPC.PANEL_STATE_CHANGED, (_evt, open: boolean) => {
+      try {
+        this.mainWindow.topBar.view.webContents.send(
+          RITUAL_IPC.PANEL_STATE_CHANGED,
+          Boolean(open)
+        );
+      } catch (err) {
+        console.error("[ritual] failed to forward panel state:", err);
+      }
+    });
   }
 
   private broadcastDarkMode(sender: WebContents, isDarkMode: boolean): void {

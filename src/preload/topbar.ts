@@ -35,6 +35,16 @@ const topBarAPI = {
     electronAPI.ipcRenderer.send(RITUAL_IPC.TOGGLE_PANEL);
   },
 
+  // Subscribes to the real panel-open state so the toolbar icon stays in sync.
+  onRitualPanelState: (callback: (open: boolean) => void) => {
+    electronAPI.ipcRenderer.on(RITUAL_IPC.PANEL_STATE_CHANGED, (_, open) =>
+      callback(Boolean(open))
+    );
+  },
+  removeRitualPanelStateListener: () => {
+    electronAPI.ipcRenderer.removeAllListeners(RITUAL_IPC.PANEL_STATE_CHANGED);
+  },
+
   // Subscribes to replay-state broadcasts so the banner can render progress.
   onReplayState: (callback: (state: ReplayState) => void) => {
     electronAPI.ipcRenderer.on(RITUAL_IPC.REPLAY_STATE, (_, state) =>

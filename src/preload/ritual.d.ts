@@ -16,6 +16,7 @@ interface RitualAPI {
     title: string
   ) => Promise<string>;
   setViewMode: (mode: RitualViewMode) => void;
+  broadcastPanelState: (open: boolean) => void;
   onPanelToggleRequested: (callback: () => void) => void;
   removePanelToggleListener: () => void;
   replayOpenTab: (url: string) => void;

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { generateMetadata, generatePlaywrightScript } from "./ai";
+import { seedDemoRituals } from "./demoSeed";
 import {
   getRituals,
   saveDismissal,
@@ -70,6 +71,10 @@ export interface RitualStore {
   viewScript: (ritualId: string) => void;
   closeScriptViewer: () => void;
 
+  // Loads three pre-built demo rituals so the panel never starts empty.
+  loadDemoRituals: () => Promise<void>;
+  isSeedingDemo: boolean;
+
   // Hydrates `rituals` from IndexedDB on app boot.
   loadRituals: () => Promise<void>;
 }
@@ -104,6 +109,7 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
   rituals: [],
   activeReplay: null,
   viewingScriptId: null,
+  isSeedingDemo: false,
 
   showCandidate: (candidate) => {
     const { currentCandidate, isGenerating, isPanelOpen } = get();
@@ -302,6 +308,22 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
       console.error("[ritual store] loadRituals failed:", err);
     }
   },
+
+  loadDemoRituals: async () => {
+    if (get().isSeedingDemo) return;
+    set({ isSeedingDemo: true });
+    try {
+      const added = await seedDemoRituals();
+      set((state) => ({
+        rituals: [...added, ...state.rituals],
+        isSeedingDemo: false,
+      }));
+      console.log(`[ritual store] seeded ${added.length} demo ritual(s)`);
+    } catch (err) {
+      console.error("[ritual store] loadDemoRituals failed:", err);
+      set({ isSeedingDemo: false });
+    }
+  },
 }));
 
 // ? Sometimes the panel is open and card is visible, we needed to sync the view mode to main
@@ -312,11 +334,18 @@ function deriveViewMode(s: RitualStore): RitualViewMode {
 }
 
 let lastSyncedMode: RitualViewMode = "hidden";
+let lastSyncedPanelOpen = false;
 useRitualStore.subscribe((state) => {
+  if (typeof window === "undefined" || !window.ritualAPI) return;
+
   const next = deriveViewMode(state);
-  if (next === lastSyncedMode) return;
-  lastSyncedMode = next;
-  if (typeof window !== "undefined" && window.ritualAPI) {
+  if (next !== lastSyncedMode) {
+    lastSyncedMode = next;
     window.ritualAPI.setViewMode(next);
+  }
+
+  if (state.isPanelOpen !== lastSyncedPanelOpen) {
+    lastSyncedPanelOpen = state.isPanelOpen;
+    window.ritualAPI.broadcastPanelState(state.isPanelOpen);
   }
 });

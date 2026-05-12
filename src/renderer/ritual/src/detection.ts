@@ -32,12 +32,27 @@ export class DetectionEngine {
   private readonly recentlyEmitted = new Map<string, number>();
   // Per-session memory: never show the same sequence twice this session
   private readonly surfacedThisSession = new Set<string>();
+  // Domain sequences of rituals the user has already saved - never suggest these again
+  private knownSequences: string[][] = [];
   // Re-entrancy guard so async storage queries from concurrent ingests can't double-emit a candidate
   private evaluating = false;
 
   // Registers the listener that receives every emitted candidate.
   onCandidate(callback: DetectionCallback): void {
     this.callback = callback;
+  }
+
+  // Tells the engine which domain sequences are already saved as rituals.
+  setKnownSequences(seqs: string[][]): void {
+    this.knownSequences = seqs.filter((s) => Array.isArray(s) && s.length > 0);
+  }
+
+  // Returns true if the candidate window is fully contained inside any saved ritual.
+  private isKnown(windowDomains: string[]): boolean {
+    for (const saved of this.knownSequences) {
+      if (containsContiguous(saved, windowDomains)) return true;
+    }
+    return false;
   }
 
   // Resets transient state
@@ -108,6 +123,8 @@ export class DetectionEngine {
 
       const lastFired = this.recentlyEmitted.get(key) ?? 0;
       if (Date.now() - lastFired < CANDIDATE_DEBOUNCE_MS) continue;
+
+      if (this.isKnown(windowDomains)) continue;
 
       if (await isDismissed(windowDomains)) continue;
 

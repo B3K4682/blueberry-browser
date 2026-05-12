@@ -29,6 +29,20 @@ export const RitualApp: React.FC = () => {
 
   const engine = useMemo(() => new DetectionEngine(), []);
 
+  useEffect(() => {
+    const push = (rituals: ReturnType<typeof useRitualStore.getState>["rituals"]) => {
+      engine.setKnownSequences(rituals.map((r) => r.domainSequence));
+    };
+    push(useRitualStore.getState().rituals);
+    let lastRef = useRitualStore.getState().rituals;
+    return useRitualStore.subscribe((state) => {
+      if (state.rituals !== lastRef) {
+        lastRef = state.rituals;
+        push(state.rituals);
+      }
+    });
+  }, [engine]);
+
   async function handleIncomingEvent(event: WorkflowEvent): Promise<void> {
     try {
       await saveEvent(event);
