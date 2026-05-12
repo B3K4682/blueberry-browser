@@ -8,7 +8,10 @@ import type { RitualCandidate } from "../shared/ritual-types";
 const PANEL_WIDTH = 480;
 const CARD_WIDTH = 380;
 const CARD_HEIGHT = 220;
-const CARD_PADDING = 16;
+// Extra transparent margin around the card so the drop-shadow renders.
+const CARD_SHADOW_PAD = 24;
+const CARD_VIEW_WIDTH = CARD_WIDTH + CARD_SHADOW_PAD * 2;
+const CARD_VIEW_HEIGHT = CARD_HEIGHT + CARD_SHADOW_PAD * 2;
 const TOPBAR_HEIGHT = 88;
 
 export class Ritual {
@@ -113,12 +116,12 @@ export class Ritual {
         break;
 
       case "card":
-        // Floating Card anchored to the bottom-right corner.
+        // Bottom-right anchor; the shadow pad acts as both gutter and shadow room.
         this.webContentsView.setBounds({
-          x: Math.max(0, width - CARD_WIDTH - CARD_PADDING),
-          y: Math.max(topOffset, height - CARD_HEIGHT - CARD_PADDING),
-          width: CARD_WIDTH,
-          height: CARD_HEIGHT,
+          x: Math.max(0, width - CARD_VIEW_WIDTH),
+          y: Math.max(topOffset, height - CARD_VIEW_HEIGHT),
+          width: CARD_VIEW_WIDTH,
+          height: CARD_VIEW_HEIGHT,
         });
         break;
 

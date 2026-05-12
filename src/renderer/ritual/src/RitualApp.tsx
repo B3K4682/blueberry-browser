@@ -3,6 +3,7 @@ import { saveEvent } from "./storage";
 import { DetectionEngine } from "./detection";
 import { useRitualStore } from "./store";
 import { installDevHelpers } from "./_dev";
+import { RitualCard } from "./components/RitualCard";
 import type { WorkflowEvent } from "@shared/ritual-types";
 
 export const RitualApp: React.FC = () => {
@@ -76,13 +77,17 @@ export const RitualApp: React.FC = () => {
   }, []);
 
   return (
-    <div style={{ display: "none" }} aria-hidden>
-      <span data-ritual-status={bootStatus} />
-      <span data-ritual-events={eventCount} />
-      <span data-ritual-rituals={ritualsCount} />
-      <span data-ritual-card-visible={isCardVisible ? "true" : "false"} />
-      <span data-ritual-generating={isGenerating ? "true" : "false"} />
-      <span data-ritual-candidate-id={currentCandidateId} />
+    <div className="relative h-screen w-screen">
+      <div className="absolute inset-0 hidden" aria-hidden>
+        <span data-ritual-status={bootStatus} />
+        <span data-ritual-events={eventCount} />
+        <span data-ritual-rituals={ritualsCount} />
+        <span data-ritual-card-visible={isCardVisible ? "true" : "false"} />
+        <span data-ritual-generating={isGenerating ? "true" : "false"} />
+        <span data-ritual-candidate-id={currentCandidateId} />
+      </div>
+
+      {isCardVisible && <RitualCard />}
     </div>
   );
 };

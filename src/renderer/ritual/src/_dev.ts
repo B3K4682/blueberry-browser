@@ -96,6 +96,7 @@ export function installDevHelpers(engine: DetectionEngine): void {
         currentCandidate: null,
         isCardVisible: false,
         isGenerating: false,
+        recentlySavedRitual: null,
         rituals: [],
         activeReplay: null,
       });
@@ -114,7 +115,7 @@ export function installDevHelpers(engine: DetectionEngine): void {
       return { candidate, metadata, script };
     },
     pokeCandidate: (
-      domainSequence: string[] = ["linear.app", "notion.so", "mail.google.com"]
+      domainSequence: string[] = ["linear.app", "notion.so", "linear.app", "mail.google.com"]
     ) => {
       useRitualStore.getState().showCandidate(fakeCandidate(domainSequence));
     },

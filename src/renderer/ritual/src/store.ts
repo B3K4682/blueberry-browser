@@ -13,6 +13,8 @@ export interface RitualStore {
   currentCandidate: RitualCandidate | null;
   isCardVisible: boolean;
   isGenerating: boolean;
+  // Set briefly after a save so the Card can render its confirmation state.
+  recentlySavedRitual: Ritual | null;
 
   // Saved data
   rituals: Ritual[];
@@ -45,15 +47,13 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
   currentCandidate: null,
   isCardVisible: false,
   isGenerating: false,
+  recentlySavedRitual: null,
   rituals: [],
   activeReplay: null,
 
   showCandidate: (candidate) => {
     const { currentCandidate, isGenerating } = get();
-    if (currentCandidate !== null || isGenerating) {
-      // Already showing or saving
-      return;
-    }
+    if (currentCandidate !== null || isGenerating) return;
     set({ currentCandidate: candidate, isCardVisible: true });
     window.ritualAPI.setViewMode("card");
   },
@@ -66,12 +66,20 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
     } catch (err) {
       console.error("[ritual store] saveDismissal failed:", err);
     }
-    set({ currentCandidate: null, isCardVisible: false });
+    set({
+      currentCandidate: null,
+      isCardVisible: false,
+      recentlySavedRitual: null,
+    });
     window.ritualAPI.setViewMode("hidden");
   },
 
   clearCandidate: () => {
-    set({ currentCandidate: null, isCardVisible: false });
+    set({
+      currentCandidate: null,
+      isCardVisible: false,
+      recentlySavedRitual: null,
+    });
     window.ritualAPI.setViewMode("hidden");
   },
 
@@ -98,12 +106,12 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
         automationIdeas: metadata.automationIdeas,
       };
 
-      // ? Renamed bcos of naming conflict
       await persistRitual(ritual);
 
       set((state) => ({
         rituals: [ritual, ...state.rituals],
         isGenerating: false,
+        recentlySavedRitual: ritual,
       }));
 
       console.log(`[ritual store] saved "${ritual.title}"`);
