@@ -1,4 +1,5 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
+import type { ReplayState } from "../shared/ritual-ipc";
 import type { TabInfo } from "../shared/types";
 
 interface TopBarAPI {
@@ -17,6 +18,10 @@ interface TopBarAPI {
 
   toggleSidebar: () => Promise<void>;
   toggleRitualPanel: () => void;
+
+  onReplayState: (callback: (state: ReplayState) => void) => void;
+  removeReplayStateListener: () => void;
+  stopReplay: () => void;
 
   onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => void;
   removeTabsUpdatedListener: () => void;

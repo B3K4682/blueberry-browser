@@ -5,6 +5,7 @@ import { useRitualStore } from "./store";
 import { installDevHelpers } from "./_dev";
 import { RitualCard } from "./components/RitualCard";
 import { RitualPanel } from "./components/RitualPanel";
+import { ScriptViewer } from "./components/ScriptViewer";
 import type { WorkflowEvent } from "@shared/ritual-types";
 
 export const RitualApp: React.FC = () => {
@@ -14,11 +15,14 @@ export const RitualApp: React.FC = () => {
   const [eventCount, setEventCount] = useState(0);
   const subscribed = useRef(false);
   const panelSubscribed = useRef(false);
+  const stopReplaySubscribed = useRef(false);
 
   const ritualsCount = useRitualStore((s) => s.rituals.length);
   const isCardVisible = useRitualStore((s) => s.isCardVisible);
   const isPanelOpen = useRitualStore((s) => s.isPanelOpen);
   const isGenerating = useRitualStore((s) => s.isGenerating);
+  const viewingScriptId = useRitualStore((s) => s.viewingScriptId);
+  const viewScript = useRitualStore((s) => s.viewScript);
   const currentCandidateId = useRitualStore(
     (s) => s.currentCandidate?.id ?? ""
   );
@@ -64,6 +68,13 @@ export const RitualApp: React.FC = () => {
             useRitualStore.getState().togglePanel();
           });
         }
+
+        if (!stopReplaySubscribed.current) {
+          stopReplaySubscribed.current = true;
+          window.ritualAPI.onReplayStopRequested(() => {
+            useRitualStore.getState().stopReplay();
+          });
+        }
       } catch (err) {
         if (cancelled) return;
         console.error("[ritual] boot failed:", err);
@@ -83,13 +94,13 @@ export const RitualApp: React.FC = () => {
         window.ritualAPI.removePanelToggleListener();
         panelSubscribed.current = false;
       }
+      if (stopReplaySubscribed.current) {
+        window.ritualAPI.removeReplayStopRequestedListener();
+        stopReplaySubscribed.current = false;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function handleViewScript(ritualId: string) {
-    console.log("[ritual] view-script clicked for", ritualId);
-  }
 
   return (
     <div className="relative h-screen w-screen">
@@ -101,10 +112,12 @@ export const RitualApp: React.FC = () => {
         <span data-ritual-panel-open={isPanelOpen ? "true" : "false"} />
         <span data-ritual-generating={isGenerating ? "true" : "false"} />
         <span data-ritual-candidate-id={currentCandidateId} />
+        <span data-ritual-viewing-script={viewingScriptId ?? ""} />
       </div>
 
       {isCardVisible && <RitualCard />}
-      {isPanelOpen && <RitualPanel onViewScript={handleViewScript} />}
+      {isPanelOpen && <RitualPanel onViewScript={viewScript} />}
+      {isPanelOpen && viewingScriptId && <ScriptViewer />}
     </div>
   );
 };

@@ -1,6 +1,10 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
-import { RITUAL_IPC, type RitualViewMode } from "../shared/ritual-ipc";
+import {
+  RITUAL_IPC,
+  type ReplayState,
+  type RitualViewMode,
+} from "../shared/ritual-ipc";
 import type {
   RitualCandidate,
   RitualMetadata,
@@ -55,6 +59,28 @@ const ritualAPI = {
   removePanelToggleListener: (): void => {
     electronAPI.ipcRenderer.removeAllListeners(
       RITUAL_IPC.PANEL_TOGGLE_REQUESTED
+    );
+  },
+
+  // Replay: open one tab during a ritual replay
+  replayOpenTab: (url: string): void => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.REPLAY_OPEN_TAB, url);
+  },
+
+  // Replay: broadcast current state so main can forward to topbar + adjust banner bounds
+  broadcastReplayState: (state: ReplayState): void => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.REPLAY_STATE, state);
+  },
+
+  // Replay: subscribe to "user pressed Stop" from the topbar banner
+  onReplayStopRequested: (callback: () => void): void => {
+    electronAPI.ipcRenderer.on(RITUAL_IPC.REPLAY_STOP_REQUESTED, () =>
+      callback()
+    );
+  },
+  removeReplayStopRequestedListener: (): void => {
+    electronAPI.ipcRenderer.removeAllListeners(
+      RITUAL_IPC.REPLAY_STOP_REQUESTED
     );
   },
 };

@@ -1,6 +1,9 @@
 import { ipcMain, WebContents } from "electron";
 import { IPC } from "../shared/ipc-channels";
+import { RITUAL_IPC, type ReplayState } from "../shared/ritual-ipc";
 import type { Window } from "./Window";
+
+const REPLAY_BANNER_PX = 40;
 
 export class EventManager {
   private mainWindow: Window;
@@ -25,15 +28,11 @@ export class EventManager {
   }
 
   private setupEventHandlers(): void {
-    // Tab management events
     this.handleTabEvents();
-    
-    // Sidebar events
     this.handleSidebarEvents();
-    // Page content events
     this.handlePageContentEvents();
-    // Dark mode events
     this.handleDarkModeEvents();
+    this.handleRitualReplayEvents();
   }
 
   private handleTabEvents(): void {
@@ -184,6 +183,41 @@ export class EventManager {
   private handleDarkModeEvents(): void {
     this.on(IPC.DARK_MODE_CHANGED, (event, isDarkMode) => {
       this.broadcastDarkMode(event.sender, isDarkMode);
+    });
+  }
+
+  // Wires the three replay IPC flows that need access to the Window
+  private handleRitualReplayEvents(): void {
+    this.on(RITUAL_IPC.REPLAY_OPEN_TAB, (_evt, url: string) => {
+      if (typeof url !== "string" || url.length === 0) return;
+      try {
+        this.mainWindow.openOrFocusTab(url);
+      } catch (err) {
+        console.error("[replay] openOrFocusTab failed for", url, err);
+      }
+    });
+
+    this.on(RITUAL_IPC.REPLAY_STATE, (_evt, state: ReplayState) => {
+      const targetBanner = state.active && !state.done ? REPLAY_BANNER_PX : 0;
+      this.mainWindow.setReplayBannerHeight(targetBanner);
+      try {
+        this.mainWindow.topBar.view.webContents.send(
+          RITUAL_IPC.REPLAY_STATE,
+          state
+        );
+      } catch (err) {
+        console.error("[replay] failed to forward state to topbar:", err);
+      }
+    });
+
+    this.on(RITUAL_IPC.REPLAY_STOP_REQUESTED, () => {
+      try {
+        this.mainWindow.ritual.view.webContents.send(
+          RITUAL_IPC.REPLAY_STOP_REQUESTED
+        );
+      } catch (err) {
+        console.error("[replay] failed to forward stop to ritual:", err);
+      }
     });
   }
 

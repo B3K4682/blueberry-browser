@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserProvider } from './contexts/BrowserContext'
 import { TabBar } from './components/TabBar'
 import { AddressBar } from './components/AddressBar'
+import { ReplayBanner } from './components/ReplayBanner'
 
 export const TopBarApp: React.FC = () => {
     return (
@@ -14,6 +15,8 @@ export const TopBarApp: React.FC = () => {
                 <div className="flex items-center px-2 py-1 gap-2 app-region-drag bg-background shadow-subtle z-10 dark:shadow-[0_0_6px_rgba(0,0,0,0.2)]">
                     <AddressBar />
                 </div>
+
+                <ReplayBanner />
             </div>
         </BrowserProvider>
     )

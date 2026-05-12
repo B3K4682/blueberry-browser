@@ -2,14 +2,29 @@ import { is } from "@electron-toolkit/utils";
 import { BaseWindow, WebContentsView } from "electron";
 import { join } from "path";
 
+export const TOPBAR_BASE_HEIGHT = 88;
+
 export class TopBar {
   private webContentsView: WebContentsView;
   private baseWindow: BaseWindow;
+  private bannerHeight = 0;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
     this.webContentsView = this.createWebContentsView();
     baseWindow.contentView.addChildView(this.webContentsView);
+    this.setupBounds();
+  }
+
+  // Total height including the replay banner, so callers can position content below.
+  get totalHeight(): number {
+    return TOPBAR_BASE_HEIGHT + this.bannerHeight;
+  }
+
+  // Grows the topbar by `px` to make room for the replay banner.
+  setBannerHeight(px: number): void {
+    if (this.bannerHeight === px) return;
+    this.bannerHeight = px;
     this.setupBounds();
   }
 
@@ -46,7 +61,7 @@ export class TopBar {
       x: 0,
       y: 0,
       width: bounds.width,
-      height: 88, // Fixed height for topbar (40px tabs + 48px address bar)
+      height: this.totalHeight,
     });
   }
 

@@ -107,6 +107,30 @@ export class Window {
     }));
   }
 
+  // Replay helper: if a tab on the same hostname already exists, focus it
+  async openOrFocusTab(url: string): Promise<Tab> {
+    const targetHost = this.extractHostname(url);
+    if (targetHost) {
+      for (const tab of this.tabsMap.values()) {
+        if (this.extractHostname(tab.url) === targetHost) {
+          this.switchActiveTab(tab.id);
+          return tab;
+        }
+      }
+    }
+    const tab = this.createTab(url);
+    this.switchActiveTab(tab.id);
+    return tab;
+  }
+
+  private extractHostname(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
   createTab(url?: string): Tab {
     const tabId = `tab-${++this.tabCounter}`;
     const tab = new Tab(tabId, url);
@@ -115,11 +139,12 @@ export class Window {
 
     const bounds = this._baseWindow.getBounds();
     const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
+    const topOffset = this._topBar.totalHeight;
     tab.view.setBounds({
       x: 0,
-      y: 88,
+      y: topOffset,
       width: bounds.width - sidebarWidth,
-      height: bounds.height - 88,
+      height: bounds.height - topOffset,
     });
 
     // Open external links in the OS browser
@@ -209,20 +234,31 @@ export class Window {
   updateAllBounds(): void {
     this.updateTabBounds();
     this._sideBar.updateBounds();
+    this._ritual.updateBounds();
   }
 
   private updateTabBounds(): void {
     const bounds = this._baseWindow.getBounds();
     const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
+    const topOffset = this._topBar.totalHeight;
 
     this.tabsMap.forEach((tab) => {
       tab.view.setBounds({
         x: 0,
-        y: 88,
+        y: topOffset,
         width: bounds.width - sidebarWidth,
-        height: bounds.height - 88,
+        height: bounds.height - topOffset,
       });
     });
+  }
+
+  // Coordinated resize when the replay banner shows/hides. Grows the topbar,
+  // shifts tab content down, and aligns the ritual surface so the panel/card
+  // never overlap the new banner row.
+  setReplayBannerHeight(px: number): void {
+    this._topBar.setBannerHeight(px);
+    this._ritual.setReplayBannerOffset(px);
+    this.updateAllBounds();
   }
 
   // Pushes serialized tab state to the topbar renderer

@@ -1,7 +1,7 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import { IPC } from "../shared/ipc-channels";
-import { RITUAL_IPC } from "../shared/ritual-ipc";
+import { RITUAL_IPC, type ReplayState } from "../shared/ritual-ipc";
 import type { TabInfo } from "../shared/types";
 
 const topBarAPI = {
@@ -33,6 +33,21 @@ const topBarAPI = {
   // Tells main the ritual panel should open or close.
   toggleRitualPanel: () => {
     electronAPI.ipcRenderer.send(RITUAL_IPC.TOGGLE_PANEL);
+  },
+
+  // Subscribes to replay-state broadcasts so the banner can render progress.
+  onReplayState: (callback: (state: ReplayState) => void) => {
+    electronAPI.ipcRenderer.on(RITUAL_IPC.REPLAY_STATE, (_, state) =>
+      callback(state as ReplayState)
+    );
+  },
+  removeReplayStateListener: () => {
+    electronAPI.ipcRenderer.removeAllListeners(RITUAL_IPC.REPLAY_STATE);
+  },
+
+  // User clicked Stop in the replay banner.
+  stopReplay: () => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.REPLAY_STOP_REQUESTED);
   },
 
   // Event-driven tab updates from main process
