@@ -7,7 +7,7 @@ export class SideBar {
   private webContentsView: WebContentsView;
   private baseWindow: BaseWindow;
   private llmClient: LLMClient;
-  private isVisible: boolean = true;
+  private isVisible: boolean = false;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;

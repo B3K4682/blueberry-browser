@@ -96,4 +96,54 @@ body {
   .animate-check-pop {
     animation: check-pop 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
+
+  /* Timeline curve reveal */
+  @keyframes dash-in {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Timeline node pop */
+  @keyframes node-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Panel slide-in from the right */
+  @keyframes panel-in {
+    0% {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .animate-panel-in {
+    animation: panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Staggered list item fade-up */
+  @keyframes list-item-in {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-list-item-in {
+    animation: list-item-in 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+  }
 }

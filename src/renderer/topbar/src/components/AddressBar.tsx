@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, ArrowRight, RefreshCw, Loader2, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RefreshCw, Loader2, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react'
 import { useBrowser } from '../contexts/BrowserContext'
 import { ToolBarButton } from '../components/ToolBarButton'
 import { Favicon } from '../components/Favicon'
@@ -12,6 +12,7 @@ export const AddressBar: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+    const [isRitualPanelOpen, setIsRitualPanelOpen] = useState(false)
 
     // Update URL when active tab changes
     useEffect(() => {
@@ -104,9 +105,15 @@ export const AddressBar: React.FC = () => {
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen)
-        // Send IPC event to toggle sidebar
         if (window.topBarAPI) {
             window.topBarAPI.toggleSidebar()
+        }
+    }
+
+    const toggleRitualPanel = () => {
+        setIsRitualPanelOpen((v) => !v)
+        if (window.topBarAPI) {
+            window.topBarAPI.toggleRitualPanel()
         }
     }
 
@@ -197,6 +204,12 @@ export const AddressBar: React.FC = () => {
             {/* Actions Menu */}
             <div className="flex items-center gap-1 app-region-no-drag">
                 <DarkModeToggle />
+                <ToolBarButton
+                    Icon={Sparkles}
+                    onClick={toggleRitualPanel}
+                    toggled={isRitualPanelOpen}
+                    active
+                />
                 <ToolBarButton
                     Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}
                     onClick={toggleSidebar}

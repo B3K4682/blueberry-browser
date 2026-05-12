@@ -1,6 +1,7 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import { IPC } from "../shared/ipc-channels";
+import { RITUAL_IPC } from "../shared/ritual-ipc";
 import type { TabInfo } from "../shared/types";
 
 const topBarAPI = {
@@ -28,6 +29,11 @@ const topBarAPI = {
 
   toggleSidebar: () =>
     electronAPI.ipcRenderer.invoke(IPC.TOGGLE_SIDEBAR),
+
+  // Tells main the ritual panel should open or close.
+  toggleRitualPanel: () => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.TOGGLE_PANEL);
+  },
 
   // Event-driven tab updates from main process
   onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => {

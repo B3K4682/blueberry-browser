@@ -4,6 +4,7 @@ import { DetectionEngine } from "./detection";
 import { useRitualStore } from "./store";
 import { installDevHelpers } from "./_dev";
 import { RitualCard } from "./components/RitualCard";
+import { RitualPanel } from "./components/RitualPanel";
 import type { WorkflowEvent } from "@shared/ritual-types";
 
 export const RitualApp: React.FC = () => {
@@ -12,10 +13,11 @@ export const RitualApp: React.FC = () => {
   );
   const [eventCount, setEventCount] = useState(0);
   const subscribed = useRef(false);
+  const panelSubscribed = useRef(false);
 
-  // Store slices for the debug-attribute readout
   const ritualsCount = useRitualStore((s) => s.rituals.length);
   const isCardVisible = useRitualStore((s) => s.isCardVisible);
+  const isPanelOpen = useRitualStore((s) => s.isPanelOpen);
   const isGenerating = useRitualStore((s) => s.isGenerating);
   const currentCandidateId = useRitualStore(
     (s) => s.currentCandidate?.id ?? ""
@@ -23,7 +25,6 @@ export const RitualApp: React.FC = () => {
 
   const engine = useMemo(() => new DetectionEngine(), []);
 
-  // Persists one incoming event and logs it for verification.
   async function handleIncomingEvent(event: WorkflowEvent): Promise<void> {
     try {
       await saveEvent(event);
@@ -45,7 +46,6 @@ export const RitualApp: React.FC = () => {
         setBootStatus("ready");
         console.log("[ritual] boot complete");
 
-        // Route Detection Engine candidates directly into the store
         engine.onCandidate((candidate) => {
           useRitualStore.getState().showCandidate(candidate);
         });
@@ -56,6 +56,13 @@ export const RitualApp: React.FC = () => {
           subscribed.current = true;
           window.ritualAPI.onEvent(handleIncomingEvent);
           window.ritualAPI.markReady();
+        }
+
+        if (!panelSubscribed.current) {
+          panelSubscribed.current = true;
+          window.ritualAPI.onPanelToggleRequested(() => {
+            useRitualStore.getState().togglePanel();
+          });
         }
       } catch (err) {
         if (cancelled) return;
@@ -72,9 +79,17 @@ export const RitualApp: React.FC = () => {
         window.ritualAPI.removeEventListener();
         subscribed.current = false;
       }
+      if (panelSubscribed.current) {
+        window.ritualAPI.removePanelToggleListener();
+        panelSubscribed.current = false;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleViewScript(ritualId: string) {
+    console.log("[ritual] view-script clicked for", ritualId);
+  }
 
   return (
     <div className="relative h-screen w-screen">
@@ -83,11 +98,13 @@ export const RitualApp: React.FC = () => {
         <span data-ritual-events={eventCount} />
         <span data-ritual-rituals={ritualsCount} />
         <span data-ritual-card-visible={isCardVisible ? "true" : "false"} />
+        <span data-ritual-panel-open={isPanelOpen ? "true" : "false"} />
         <span data-ritual-generating={isGenerating ? "true" : "false"} />
         <span data-ritual-candidate-id={currentCandidateId} />
       </div>
 
       {isCardVisible && <RitualCard />}
+      {isPanelOpen && <RitualPanel onViewScript={handleViewScript} />}
     </div>
   );
 };

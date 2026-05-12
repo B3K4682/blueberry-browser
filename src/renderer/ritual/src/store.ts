@@ -6,6 +6,7 @@ import {
   saveRitual as persistRitual,
   updateRitual,
 } from "./storage";
+import type { RitualViewMode } from "@shared/ritual-ipc";
 import type { Ritual, RitualCandidate } from "@shared/ritual-types";
 
 export interface RitualStore {
@@ -16,6 +17,9 @@ export interface RitualStore {
   // Set briefly after a save so the Card can render its confirmation state.
   recentlySavedRitual: Ritual | null;
 
+  // Panel state
+  isPanelOpen: boolean;
+
   // Saved data
   rituals: Ritual[];
 
@@ -24,19 +28,23 @@ export interface RitualStore {
 
   // Actions
 
-  // Detection Engine hands us candidate
+  // Detection Engine hands us a candidate.
   showCandidate: (candidate: RitualCandidate) => void;
 
-  // User clicked "Not now" - dismiss candidate
+  // User clicked "Not now" — records a dismissal.
   dismissCandidate: () => Promise<void>;
 
-  // Internal: hide the card without recording a dismissal
+  // Internal: hide the card without recording a dismissal.
   clearCandidate: () => void;
 
-  // User clicked "Remember it"
+  // User clicked "Remember it".
   saveRitual: (candidate: RitualCandidate) => Promise<void>;
 
-  // User clicked "Run this"
+  // Open / close / toggle the right-side panel.
+  closePanel: () => void;
+  togglePanel: () => void;
+
+  // User clicked "Run this".
   replayRitual: (ritualId: string) => Promise<void>;
 
   // Hydrates `rituals` from IndexedDB on app boot.
@@ -48,14 +56,16 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
   isCardVisible: false,
   isGenerating: false,
   recentlySavedRitual: null,
+  isPanelOpen: false,
   rituals: [],
   activeReplay: null,
 
   showCandidate: (candidate) => {
-    const { currentCandidate, isGenerating } = get();
+    const { currentCandidate, isGenerating, isPanelOpen } = get();
     if (currentCandidate !== null || isGenerating) return;
+    // Don't slide a card under the panel — it would be hidden anyway.
+    if (isPanelOpen) return;
     set({ currentCandidate: candidate, isCardVisible: true });
-    window.ritualAPI.setViewMode("card");
   },
 
   dismissCandidate: async () => {
@@ -71,7 +81,6 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
       isCardVisible: false,
       recentlySavedRitual: null,
     });
-    window.ritualAPI.setViewMode("hidden");
   },
 
   clearCandidate: () => {
@@ -80,7 +89,6 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
       isCardVisible: false,
       recentlySavedRitual: null,
     });
-    window.ritualAPI.setViewMode("hidden");
   },
 
   saveRitual: async (candidate) => {
@@ -121,6 +129,25 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
     }
   },
 
+  closePanel: () => {
+    set({ isPanelOpen: false });
+  },
+
+  togglePanel: () => {
+    const { isPanelOpen, isGenerating } = get();
+    if (isGenerating) return;
+    if (isPanelOpen) {
+      set({ isPanelOpen: false });
+    } else {
+      set({
+        isPanelOpen: true,
+        currentCandidate: null,
+        isCardVisible: false,
+        recentlySavedRitual: null,
+      });
+    }
+  },
+
   replayRitual: async (ritualId) => {
     const ritual = get().rituals.find((r) => r.id === ritualId);
     if (!ritual) {
@@ -155,3 +182,20 @@ export const useRitualStore = create<RitualStore>((set, get) => ({
     }
   },
 }));
+
+// ? Sometimes the panel is open and card is visible, we needed to sync the view mode to main
+function deriveViewMode(s: RitualStore): RitualViewMode {
+  if (s.isPanelOpen) return "panel";
+  if (s.isCardVisible) return "card";
+  return "hidden";
+}
+
+let lastSyncedMode: RitualViewMode = "hidden";
+useRitualStore.subscribe((state) => {
+  const next = deriveViewMode(state);
+  if (next === lastSyncedMode) return;
+  lastSyncedMode = next;
+  if (typeof window !== "undefined" && window.ritualAPI) {
+    window.ritualAPI.setViewMode(next);
+  }
+});

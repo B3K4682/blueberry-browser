@@ -16,6 +16,7 @@ interface TopBarAPI {
   tabRunJs: (tabId: string, code: string) => Promise<any>;
 
   toggleSidebar: () => Promise<void>;
+  toggleRitualPanel: () => void;
 
   onTabsUpdated: (callback: (tabs: TabInfo[]) => void) => void;
   removeTabsUpdatedListener: () => void;

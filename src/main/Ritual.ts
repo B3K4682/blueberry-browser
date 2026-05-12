@@ -23,6 +23,8 @@ export class Ritual {
   private viewModeListener:
     | ((_evt: Electron.IpcMainEvent, mode: RitualViewMode) => void)
     | null = null;
+  private togglePanelListener: ((_evt: Electron.IpcMainEvent) => void) | null =
+    null;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -155,6 +157,19 @@ export class Ritual {
     // the store calls this on every visibility change
     this.viewModeListener = (_evt, mode) => this.setViewMode(mode);
     ipcMain.on(RITUAL_IPC.SET_VIEW_MODE, this.viewModeListener);
+
+    // Topbar toolbar button -> forward into ritual renderer's store
+    this.togglePanelListener = () => this.forwardPanelToggle();
+    ipcMain.on(RITUAL_IPC.TOGGLE_PANEL, this.togglePanelListener);
+  }
+
+  // Forwards a toolbar-icon click to the ritual renderer's store.
+  private forwardPanelToggle(): void {
+    try {
+      this.webContentsView.webContents.send(RITUAL_IPC.PANEL_TOGGLE_REQUESTED);
+    } catch (err) {
+      console.error("[ritual] forwardPanelToggle failed:", err);
+    }
   }
 
   destroy(): void {
@@ -164,6 +179,13 @@ export class Ritual {
       if (this.viewModeListener) {
         ipcMain.removeListener(RITUAL_IPC.SET_VIEW_MODE, this.viewModeListener);
         this.viewModeListener = null;
+      }
+      if (this.togglePanelListener) {
+        ipcMain.removeListener(
+          RITUAL_IPC.TOGGLE_PANEL,
+          this.togglePanelListener
+        );
+        this.togglePanelListener = null;
       }
     } catch {
       // Handlers may already be removed if destroy is called twice.

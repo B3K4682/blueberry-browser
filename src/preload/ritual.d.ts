@@ -16,6 +16,8 @@ interface RitualAPI {
     title: string
   ) => Promise<string>;
   setViewMode: (mode: RitualViewMode) => void;
+  onPanelToggleRequested: (callback: () => void) => void;
+  removePanelToggleListener: () => void;
 }
 
 declare global {

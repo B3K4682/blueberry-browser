@@ -45,6 +45,18 @@ const ritualAPI = {
   setViewMode: (mode: RitualViewMode): void => {
     electronAPI.ipcRenderer.send(RITUAL_IPC.SET_VIEW_MODE, mode);
   },
+
+  // Main forwards toolbar-icon clicks here so the store can toggle the panel
+  onPanelToggleRequested: (callback: () => void): void => {
+    electronAPI.ipcRenderer.on(RITUAL_IPC.PANEL_TOGGLE_REQUESTED, () =>
+      callback()
+    );
+  },
+  removePanelToggleListener: (): void => {
+    electronAPI.ipcRenderer.removeAllListeners(
+      RITUAL_IPC.PANEL_TOGGLE_REQUESTED
+    );
+  },
 };
 
 if (process.contextIsolated) {

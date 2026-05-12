@@ -21,6 +21,10 @@ export const RITUAL_IPC = {
   // the panel open/closed.
   TOGGLE_PANEL: "ritual:toggle-panel",
 
+  // Main -> ritual renderer: forwarded TOGGLE_PANEL signal so the store
+  // can flip its `isPanelOpen` flag.
+  PANEL_TOGGLE_REQUESTED: "ritual:panel-toggle-requested",
+
   // Main -> topbar renderer: replay state changed (banner needs to update).
   REPLAY_STATE: "ritual:replay-state",
 
