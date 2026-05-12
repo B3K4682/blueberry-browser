@@ -89,6 +89,9 @@ export class Ritual {
     // content. The renderer paints its own surfaces with rounded corners.
     view.setBackgroundColor("#00000000");
 
+    // TODO: Remove this after development
+    view.webContents.openDevTools({mode: "detach"});
+
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
       const url = new URL("/ritual/", process.env["ELECTRON_RENDERER_URL"]);
       view.webContents.loadURL(url.toString());

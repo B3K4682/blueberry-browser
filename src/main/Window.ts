@@ -3,6 +3,7 @@ import { Tab } from "./Tab";
 import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
 import { Ritual } from "./Ritual";
+import { RitualCollector } from "./RitualCollector";
 import { IPC } from "../shared/ipc-channels";
 import type { TabInfo } from "../shared/types";
 
@@ -14,6 +15,7 @@ export class Window {
   private _topBar: TopBar;
   private _sideBar: SideBar;
   private _ritual: Ritual;
+  private _ritualCollector: RitualCollector;
 
   constructor() {
     this._baseWindow = new BaseWindow({
@@ -31,6 +33,7 @@ export class Window {
     this._topBar = new TopBar(this._baseWindow);
     this._sideBar = new SideBar(this._baseWindow);
     this._ritual = new Ritual(this._baseWindow);
+    this._ritualCollector = new RitualCollector(this._ritual.view);
 
     this._sideBar.client.setWindow(this);
 
@@ -52,6 +55,7 @@ export class Window {
     });
 
     this._baseWindow.on("closed", () => {
+      this._ritualCollector.cleanup();
       this.tabsMap.forEach((tab) => tab.destroy());
       this.tabsMap.clear();
     });
@@ -86,6 +90,10 @@ export class Window {
 
   get ritual(): Ritual {
     return this._ritual;
+  }
+
+  get ritualCollector(): RitualCollector {
+    return this._ritualCollector;
   }
 
   // Serializes current tab state for IPC
@@ -126,6 +134,9 @@ export class Window {
 
     this.tabsMap.set(tabId, tab);
 
+    // Subscribe to navigation events
+    this._ritualCollector.attachTab(tab);
+
     if (this.tabsMap.size === 1) {
       this.switchActiveTab(tabId);
     } else {
@@ -142,6 +153,10 @@ export class Window {
   closeTab(tabId: string): boolean {
     const tab = this.tabsMap.get(tabId);
     if (!tab) return false;
+
+    // Detach the collector BEFORE destroy so the tab_close event can still
+    // read the tab's final url/title.
+    this._ritualCollector.detachTab(tabId, tab.url, tab.title);
 
     this._baseWindow.contentView.removeChildView(tab.view);
     tab.destroy();
@@ -167,6 +182,8 @@ export class Window {
     const tab = this.tabsMap.get(tabId);
     if (!tab) return false;
 
+    const wasAlreadyActive = this.activeTabId === tabId;
+
     if (this.activeTabId && this.activeTabId !== tabId) {
       const currentTab = this.tabsMap.get(this.activeTabId);
       if (currentTab) currentTab.hide();
@@ -175,6 +192,10 @@ export class Window {
     tab.show();
     this.activeTabId = tabId;
     this._baseWindow.setTitle(tab.title || "Blueberry Browser");
+
+    if (!wasAlreadyActive) {
+      this._ritualCollector.recordTabSwitch(tab);
+    }
 
     this.notifyTabsChanged();
     return true;

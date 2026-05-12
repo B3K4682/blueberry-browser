@@ -1,17 +1,38 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
+import { RITUAL_IPC } from "../shared/ritual-ipc";
+import type { WorkflowEvent } from "../shared/ritual-types";
 
-// Preload for the ritual renderer. In Step 1 we expose nothing project-
-// specific yet — the renderer only needs IndexedDB, which it already has.
-// Subsequent steps will hang `ritualAPI` on the window with IPC channels
-// for events, AI calls, view-mode requests, and replay.
+// Bridge between the ritual renderer and the main process.
+const ritualAPI = {
+  // Subscribes to WorkflowEvent emissions
+  onEvent: (callback: (event: WorkflowEvent) => void): void => {
+    electronAPI.ipcRenderer.on(RITUAL_IPC.EVENT_EMITTED, (_evt, payload) =>
+      callback(payload as WorkflowEvent)
+    );
+  },
+
+  // Tears down all event-emitted listeners
+  removeEventListener: (): void => {
+    electronAPI.ipcRenderer.removeAllListeners(RITUAL_IPC.EVENT_EMITTED);
+  },
+
+  // Signals to the collector that the renderer has subscribed and any queued events can now be flushed
+  markReady: (): void => {
+    electronAPI.ipcRenderer.send(RITUAL_IPC.RENDERER_READY);
+  },
+};
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("electron", electronAPI);
+    contextBridge.exposeInMainWorld("ritualAPI", ritualAPI);
   } catch (error) {
     console.error(error);
   }
 } else {
   // @ts-ignore (define in dts)
   window.electron = electronAPI;
+  // @ts-ignore (define in dts)
+  window.ritualAPI = ritualAPI;
 }

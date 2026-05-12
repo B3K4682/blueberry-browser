@@ -1,5 +1,8 @@
 // "Ritual" IPC channels.
 export const RITUAL_IPC = {
+  // Ritual renderer -> main: renderer has finished mounting and is now subscribed to event-emitted.
+  RENDERER_READY: "ritual:renderer-ready",
+
   // Main -> ritual renderer: a new normalized WorkflowEvent has been observed.
   EVENT_EMITTED: "ritual:event-emitted",
 
