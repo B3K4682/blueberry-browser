@@ -29,7 +29,9 @@
     "ai": "^5.0.44",
     "class-variance-authority": "^0.7.1",
     "dotenv": "^17.2.2",
+    "idb": "^8.0.3",
     "lucide-react": "^0.544.0",
+    "nanoid": "^5.1.11",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1"

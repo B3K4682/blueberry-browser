@@ -1,0 +1,143 @@
+import { is } from "@electron-toolkit/utils";
+import { BaseWindow, WebContentsView } from "electron";
+import { join } from "path";
+import type { RitualViewMode } from "../shared/ritual-ipc";
+
+// The Ritual feature has three distinct UI surfaces (Card, Panel, Banner),
+// but only the Card and Panel live in the dedicated ritual renderer — the
+// Replay Banner is hosted by the topbar. This class owns the underlying
+// WebContentsView for the ritual renderer and exposes a single method
+// (`setViewMode`) that resizes it to whichever surface is currently active.
+//
+// Step 1: boots the renderer and keeps the view hidden (0x0 bounds) so the
+// IndexedDB schema can initialise without painting anything. Later steps
+// flip the mode to 'card' or 'panel' as needed.
+
+const PANEL_WIDTH = 480;
+const CARD_WIDTH = 380;
+const CARD_HEIGHT = 220;
+const CARD_PADDING = 16;
+const TOPBAR_HEIGHT = 88;
+
+export class Ritual {
+  private webContentsView: WebContentsView;
+  private baseWindow: BaseWindow;
+  private mode: RitualViewMode = "hidden";
+  private replayBannerOffset = 0;
+
+  constructor(baseWindow: BaseWindow) {
+    this.baseWindow = baseWindow;
+    this.webContentsView = this.createWebContentsView();
+    baseWindow.contentView.addChildView(this.webContentsView);
+    this.applyBounds();
+  }
+
+  // Returns the underlying view so the Window can re-stack it above newly
+  // created tabs (a tab added via addChildView would otherwise cover us).
+  get view(): WebContentsView {
+    return this.webContentsView;
+  }
+
+  // Active surface mode. The renderer asks for transitions via IPC, the main
+  // process applies the geometry.
+  get currentMode(): RitualViewMode {
+    return this.mode;
+  }
+
+  // Pushes the ritual view to the front of the z-stack. Called by Window
+  // after creating a tab so the Card/Panel keeps overlaying web content.
+  bringToFront(): void {
+    this.baseWindow.contentView.addChildView(this.webContentsView);
+  }
+
+  // Switches the surface and re-applies the matching bounds. No-op if the
+  // mode is unchanged so we don't spam Electron with redundant geometry.
+  setViewMode(mode: RitualViewMode): void {
+    if (this.mode === mode) return;
+    this.mode = mode;
+    this.applyBounds();
+    if (mode !== "hidden") {
+      this.bringToFront();
+    }
+  }
+
+  // The topbar grows by ~40px during replay. Window forwards the offset so
+  // the ritual surfaces stay aligned with the visible browser chrome.
+  setReplayBannerOffset(offsetPx: number): void {
+    if (this.replayBannerOffset === offsetPx) return;
+    this.replayBannerOffset = offsetPx;
+    this.applyBounds();
+  }
+
+  // Recompute bounds whenever the window resizes. Called from Window.
+  updateBounds(): void {
+    this.applyBounds();
+  }
+
+  private createWebContentsView(): WebContentsView {
+    const view = new WebContentsView({
+      webPreferences: {
+        preload: join(__dirname, "../preload/ritual.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
+        transparent: true,
+      },
+    });
+
+    // Transparent background lets the floating Card visually overlay web
+    // content. The renderer paints its own surfaces with rounded corners.
+    view.setBackgroundColor("#00000000");
+
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+      const url = new URL("/ritual/", process.env["ELECTRON_RENDERER_URL"]);
+      view.webContents.loadURL(url.toString());
+    } else {
+      view.webContents.loadFile(join(__dirname, "../renderer/ritual.html"));
+    }
+
+    return view;
+  }
+
+  private applyBounds(): void {
+    const { width, height } = this.baseWindow.getBounds();
+    const topOffset = TOPBAR_HEIGHT + this.replayBannerOffset;
+
+    switch (this.mode) {
+      case "hidden":
+        // Zero-size keeps the renderer alive (IndexedDB stays open) without
+        // capturing any input or paint area.
+        this.webContentsView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+        break;
+
+      case "card":
+        // Floating Card anchored to the bottom-right corner.
+        this.webContentsView.setBounds({
+          x: Math.max(0, width - CARD_WIDTH - CARD_PADDING),
+          y: Math.max(topOffset, height - CARD_HEIGHT - CARD_PADDING),
+          width: CARD_WIDTH,
+          height: CARD_HEIGHT,
+        });
+        break;
+
+      case "panel":
+        // Full-height right-side sidebar — sits to the right of the tab
+        // content, replacing the chat sidebar visually when both are open.
+        this.webContentsView.setBounds({
+          x: Math.max(0, width - PANEL_WIDTH),
+          y: topOffset,
+          width: PANEL_WIDTH,
+          height: Math.max(0, height - topOffset),
+        });
+        break;
+    }
+  }
+
+  destroy(): void {
+    try {
+      this.webContentsView.webContents.close();
+    } catch {
+      // View may already be torn down during window-close.
+    }
+  }
+}

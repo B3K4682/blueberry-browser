@@ -2,6 +2,7 @@ import { BaseWindow, shell } from "electron";
 import { Tab } from "./Tab";
 import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
+import { Ritual } from "./Ritual";
 import { IPC } from "../shared/ipc-channels";
 import type { TabInfo } from "../shared/types";
 
@@ -12,6 +13,7 @@ export class Window {
   private tabCounter: number = 0;
   private _topBar: TopBar;
   private _sideBar: SideBar;
+  private _ritual: Ritual;
 
   constructor() {
     this._baseWindow = new BaseWindow({
@@ -28,6 +30,7 @@ export class Window {
 
     this._topBar = new TopBar(this._baseWindow);
     this._sideBar = new SideBar(this._baseWindow);
+    this._ritual = new Ritual(this._baseWindow);
 
     this._sideBar.client.setWindow(this);
 
@@ -37,6 +40,7 @@ export class Window {
       this.updateTabBounds();
       this._topBar.updateBounds();
       this._sideBar.updateBounds();
+      this._ritual.updateBounds();
 
       const bounds = this._baseWindow.getBounds();
       if (this.activeTab) {
@@ -78,6 +82,10 @@ export class Window {
 
   get topBar(): TopBar {
     return this._topBar;
+  }
+
+  get ritual(): Ritual {
+    return this._ritual;
   }
 
   // Serializes current tab state for IPC
@@ -123,6 +131,9 @@ export class Window {
     } else {
       tab.hide();
     }
+
+    // Keep the ritual surfaces visually on top of newly added tabs.
+    this._ritual.bringToFront();
 
     this.notifyTabsChanged();
     return tab;
