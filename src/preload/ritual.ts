@@ -1,7 +1,11 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import { RITUAL_IPC } from "../shared/ritual-ipc";
-import type { WorkflowEvent } from "../shared/ritual-types";
+import type {
+  RitualCandidate,
+  RitualMetadata,
+  WorkflowEvent,
+} from "../shared/ritual-types";
 
 // Bridge between the ritual renderer and the main process.
 const ritualAPI = {
@@ -21,6 +25,21 @@ const ritualAPI = {
   markReady: (): void => {
     electronAPI.ipcRenderer.send(RITUAL_IPC.RENDERER_READY);
   },
+
+  // Asks the main-process AI Layer to produce metadata for a candidate.
+  generateMetadata: (candidate: RitualCandidate): Promise<RitualMetadata> =>
+    electronAPI.ipcRenderer.invoke(RITUAL_IPC.GENERATE_METADATA, candidate),
+
+  // Asks main to render the candidate's events as a Playwright script.
+  generatePlaywrightScript: (
+    candidate: RitualCandidate,
+    title: string
+  ): Promise<string> =>
+    electronAPI.ipcRenderer.invoke(
+      RITUAL_IPC.GENERATE_PLAYWRIGHT,
+      candidate,
+      title
+    ),
 };
 
 if (process.contextIsolated) {

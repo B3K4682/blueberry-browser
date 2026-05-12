@@ -56,6 +56,7 @@ export class Window {
 
     this._baseWindow.on("closed", () => {
       this._ritualCollector.cleanup();
+      this._ritual.destroy();
       this.tabsMap.forEach((tab) => tab.destroy());
       this.tabsMap.clear();
     });

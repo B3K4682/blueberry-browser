@@ -1,9 +1,45 @@
 import { saveEvent, resetAllStores, getRituals } from "./storage";
-import type { WorkflowEvent } from "@shared/ritual-types";
+import { generateMetadata, generatePlaywrightScript } from "./ai";
+import type {
+  RitualCandidate,
+  WorkflowEvent,
+} from "@shared/ritual-types";
 import type { DetectionEngine } from "./detection";
 
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// Fake candidate for development
+function fakeCandidate(domainSequence: string[]): RitualCandidate {
+  const titlesByDomain: Record<string, string> = {
+    "linear.app": "Linear — Sprint Board",
+    "notion.so": "Notion — Product Roadmap Q2",
+    "mail.google.com": "Inbox — Gmail",
+    "github.com": "GitHub — Pull Requests",
+    "figma.com": "Figma — Design",
+  };
+
+  const now = Date.now();
+  const events: WorkflowEvent[] = domainSequence.map((domain, i) => ({
+    id: crypto.randomUUID(),
+    timestamp: now - (domainSequence.length - i) * 5_000,
+    type: "navigation",
+    url: `https://${domain}/`,
+    title: titlesByDomain[domain] ?? domain,
+    domain,
+    tabId: "dev-tab",
+    sessionId: "dev-session",
+  }));
+
+  return {
+    id: crypto.randomUUID(),
+    detectedAt: now,
+    domainSequence,
+    occurrences: 3,
+    events,
+    confidence: 0.6,
+  };
+}
 
 // Seed sessions for development
 async function seedHistoricalSessions(
@@ -57,10 +93,21 @@ export function installDevHelpers(engine: DetectionEngine): void {
       engine.reset();
       console.log("[dev] all stores cleared, engine reset");
     },
+    fakeCandidate,
+    testAI: async (
+      domainSequence: string[] = ["linear.app", "notion.so", "mail.google.com"]
+    ) => {
+      const candidate = fakeCandidate(domainSequence);
+      const metadata = await generateMetadata(candidate);
+      console.log("[dev] generated metadata:", metadata);
+      const script = await generatePlaywrightScript(candidate, metadata.title);
+      console.log("[dev] generated playwright script:\n" + script);
+      return { candidate, metadata, script };
+    },
   };
 
   (window as unknown as { _ritualDev?: typeof helpers })._ritualDev = helpers;
   console.log(
-    "[dev] window._ritualDev ready — try _ritualDev.seed(['linear.app','notion.so','gmail.com']) then browse those sites"
+    "[dev] window._ritualDev ready — try _ritualDev.seed(['linear.app','notion.so','mail.google.com']) then browse those sites, or _ritualDev.testAI() to call OpenAI directly"
   );
 }

@@ -1,17 +1,9 @@
 import { is } from "@electron-toolkit/utils";
-import { BaseWindow, WebContentsView } from "electron";
+import { BaseWindow, ipcMain, WebContentsView } from "electron";
 import { join } from "path";
-import type { RitualViewMode } from "../shared/ritual-ipc";
-
-// The Ritual feature has three distinct UI surfaces (Card, Panel, Banner),
-// but only the Card and Panel live in the dedicated ritual renderer — the
-// Replay Banner is hosted by the topbar. This class owns the underlying
-// WebContentsView for the ritual renderer and exposes a single method
-// (`setViewMode`) that resizes it to whichever surface is currently active.
-//
-// Step 1: boots the renderer and keeps the view hidden (0x0 bounds) so the
-// IndexedDB schema can initialise without painting anything. Later steps
-// flip the mode to 'card' or 'panel' as needed.
+import { RITUAL_IPC, type RitualViewMode } from "../shared/ritual-ipc";
+import { RitualAI } from "./RitualAI";
+import type { RitualCandidate } from "../shared/ritual-types";
 
 const PANEL_WIDTH = 480;
 const CARD_WIDTH = 380;
@@ -24,12 +16,16 @@ export class Ritual {
   private baseWindow: BaseWindow;
   private mode: RitualViewMode = "hidden";
   private replayBannerOffset = 0;
+  private readonly ai: RitualAI;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
     this.webContentsView = this.createWebContentsView();
     baseWindow.contentView.addChildView(this.webContentsView);
     this.applyBounds();
+
+    this.ai = new RitualAI();
+    this.registerIpcHandlers();
   }
 
   // Returns the underlying view so the Window can re-stack it above newly
@@ -136,7 +132,28 @@ export class Ritual {
     }
   }
 
+  // Registers the main-process IPC handlers the ritual renderer talks to.
+  private registerIpcHandlers(): void {
+    ipcMain.handle(
+      RITUAL_IPC.GENERATE_METADATA,
+      async (_evt, candidate: RitualCandidate) =>
+        this.ai.generateMetadata(candidate)
+    );
+
+    ipcMain.handle(
+      RITUAL_IPC.GENERATE_PLAYWRIGHT,
+      (_evt, candidate: RitualCandidate, title: string) =>
+        this.ai.generatePlaywrightScript(candidate, title)
+    );
+  }
+
   destroy(): void {
+    try {
+      ipcMain.removeHandler(RITUAL_IPC.GENERATE_METADATA);
+      ipcMain.removeHandler(RITUAL_IPC.GENERATE_PLAYWRIGHT);
+    } catch {
+      // Handlers may already be removed if destroy is called twice.
+    }
     try {
       this.webContentsView.webContents.close();
     } catch {
