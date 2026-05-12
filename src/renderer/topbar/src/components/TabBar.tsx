@@ -100,7 +100,7 @@ export const TabBar: React.FC = () => {
     }
 
     return (
-        <div className="group/tabbar app-region-no-drag flex-1 h-full min-h-0 min-w-0 overflow-x-hidden flex items-center">
+        <div className="group/tabbar app-region-drag flex-1 h-full min-h-0 min-w-0 overflow-x-hidden flex items-center">
             <div className="pl-20 shrink-0" />
             <div className="flex min-w-0 flex-1 items-center overflow-hidden">
                 {/* Width follows tabs; does not grow—so + stays next to last tab */}

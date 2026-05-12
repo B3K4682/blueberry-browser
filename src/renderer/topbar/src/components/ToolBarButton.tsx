@@ -11,6 +11,7 @@ interface ToolBarButtonProps {
     className?: string;
 }
 
+// Toolbar icon control; when active is false the control is non-interactive and muted.
 export const ToolBarButton: React.FC<ToolBarButtonProps> = ({
     Icon,
     active = true,
@@ -25,7 +26,9 @@ export const ToolBarButton: React.FC<ToolBarButtonProps> = ({
                 "size-8 flex items-center justify-center rounded-md",
                 "text-secondary-foreground app-region-no-drag",
                 "transition-all duration-200",
-                !active ? "opacity-50" : "hover:bg-muted active:brightness-95 cursor-pointer",
+                !active
+                    ? "cursor-default pointer-events-none text-muted-foreground/40"
+                    : "hover:bg-muted active:brightness-95 cursor-pointer",
                 toggled && "bg-muted",
                 className
             )}

@@ -62,6 +62,7 @@ export class EventManager {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         await tab.loadURL(url);
+        this.mainWindow.notifyTopBarTabsChanged();
         return true;
       }
       return false;
@@ -71,6 +72,7 @@ export class EventManager {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.goBack();
+        this.mainWindow.notifyTopBarTabsChanged();
         return true;
       }
       return false;
@@ -80,6 +82,7 @@ export class EventManager {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.goForward();
+        this.mainWindow.notifyTopBarTabsChanged();
         return true;
       }
       return false;
@@ -89,6 +92,7 @@ export class EventManager {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
         tab.reload();
+        this.mainWindow.notifyTopBarTabsChanged();
         return true;
       }
       return false;
@@ -118,8 +122,9 @@ export class EventManager {
           id: activeTab.id,
           url: activeTab.url,
           title: activeTab.title,
-          canGoBack: activeTab.webContents.canGoBack(),
-          canGoForward: activeTab.webContents.canGoForward(),
+          isActive: true,
+          canGoBack: activeTab.webContents.navigationHistory.canGoBack(),
+          canGoForward: activeTab.webContents.navigationHistory.canGoForward(),
         };
       }
       return null;

@@ -76,8 +76,8 @@ export const AddressBar: React.FC = () => {
         }
     }
 
-    const canGoBack = activeTab !== null
-    const canGoForward = activeTab !== null
+    const canNavigateBack = Boolean(activeTab?.canGoBack)
+    const canNavigateForward = Boolean(activeTab?.canGoForward)
 
     // Extract domain and title for display
     const getDomain = () => {
@@ -130,12 +130,12 @@ export const AddressBar: React.FC = () => {
                 <ToolBarButton
                     Icon={ArrowLeft}
                     onClick={goBack}
-                    active={canGoBack && !isLoading}
+                    active={canNavigateBack}
                 />
                 <ToolBarButton
                     Icon={ArrowRight}
                     onClick={goForward}
-                    active={canGoForward && !isLoading}
+                    active={canNavigateForward}
                 />
                 <ToolBarButton
                     onClick={reload}

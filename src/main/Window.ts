@@ -104,6 +104,8 @@ export class Window {
       title: tab.title,
       url: tab.url,
       isActive: this.activeTabId === tab.id,
+      canGoBack: tab.webContents.navigationHistory.canGoBack(),
+      canGoForward: tab.webContents.navigationHistory.canGoForward(),
     }));
   }
 
@@ -151,10 +153,12 @@ export class Window {
       return { action: "deny" };
     });
 
-    // Push tab state changes to the topbar
-    tab.webContents.on("page-title-updated", () => this.notifyTabsChanged());
-    tab.webContents.on("did-navigate", () => this.notifyTabsChanged());
-    tab.webContents.on("did-navigate-in-page", () => this.notifyTabsChanged());
+    // Push tab state to the topbar after navigation settles (history flags match Chromium).
+    tab.webContents.on("page-title-updated", () => this.scheduleTopBarTabSync());
+    tab.webContents.on("did-navigate", () => this.scheduleTopBarTabSync());
+    tab.webContents.on("did-navigate-in-page", () => this.scheduleTopBarTabSync());
+    tab.webContents.on("did-finish-load", () => this.scheduleTopBarTabSync());
+    tab.webContents.on("did-stop-loading", () => this.scheduleTopBarTabSync());
 
     this.tabsMap.set(tabId, tab);
 
@@ -255,6 +259,13 @@ export class Window {
     this.updateAllBounds();
   }
 
+  // Defers tab serialization so session history matches Chromium after navigation events.
+  private scheduleTopBarTabSync(): void {
+    setImmediate(() => {
+      this.notifyTabsChanged();
+    });
+  }
+
   // Pushes serialized tab state to the topbar renderer
   private notifyTabsChanged(): void {
     try {
@@ -262,5 +273,10 @@ export class Window {
     } catch {
       // Topbar webContents may be destroyed during shutdown
     }
+  }
+
+  /** Sends current tab list to the topbar (call after IPC-driven navigation). */
+  notifyTopBarTabsChanged(): void {
+    this.notifyTabsChanged();
   }
 }

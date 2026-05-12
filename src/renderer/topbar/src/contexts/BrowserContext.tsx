@@ -87,8 +87,9 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
             console.error('Failed to navigate:', error)
         } finally {
             setIsLoading(false)
+            await refreshTabs()
         }
-    }, [activeTab])
+    }, [activeTab, refreshTabs])
 
     const goBack = useCallback(async () => {
         if (!activeTab) return
@@ -96,8 +97,10 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
             await window.topBarAPI.goBack(activeTab.id)
         } catch (error) {
             console.error('Failed to go back:', error)
+        } finally {
+            await refreshTabs()
         }
-    }, [activeTab])
+    }, [activeTab, refreshTabs])
 
     const goForward = useCallback(async () => {
         if (!activeTab) return
@@ -105,8 +108,10 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
             await window.topBarAPI.goForward(activeTab.id)
         } catch (error) {
             console.error('Failed to go forward:', error)
+        } finally {
+            await refreshTabs()
         }
-    }, [activeTab])
+    }, [activeTab, refreshTabs])
 
     const reload = useCallback(async () => {
         if (!activeTab) return
