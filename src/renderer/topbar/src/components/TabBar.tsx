@@ -34,19 +34,29 @@ const TabItem: React.FC<TabItemProps> = ({
     )
 
     return (
-        <div className="py-1 px-0.5">
+        <div
+            className={cn(
+                'py-1 px-0.5',
+                isPinned
+                    ? 'min-w-8 max-w-8 shrink-0'
+                    : 'min-w-0 max-w-[200px] shrink'
+            )}
+        >
             <div
-                className={baseClassName}
+                className={cn(
+                    baseClassName,
+                    !isPinned && 'w-full min-w-0 max-w-full overflow-hidden'
+                )}
                 onClick={() => !isActive && onActivate()}
             >
                 {/* Favicon */}
-                <div className={cn(!isPinned && "mr-2")}>
+                <div className={cn('shrink-0', !isPinned && 'mr-2')}>
                     <Favicon src={favicon} />
                 </div>
 
-                {/* Title (hide for pinned tabs) */}
+                {/* Title (hide for pinned tabs); min-w-0 so ellipsis works when tab shrinks */}
                 {!isPinned && (
-                    <span className="text-xs truncate max-w-[200px] flex-1">
+                    <span className="min-w-0 flex-1 truncate text-xs" title={title || 'New Tab'}>
                         {title || 'New Tab'}
                     </span>
                 )}
@@ -80,7 +90,6 @@ export const TabBar: React.FC = () => {
         createTab('https://www.google.com')
     }
 
-    // Extract favicon from URL (simplified - you might want to improve this)
     const getFavicon = (url: string) => {
         try {
             const domain = new URL(url).hostname
@@ -91,31 +100,32 @@ export const TabBar: React.FC = () => {
     }
 
     return (
-        <div className="flex-1 overflow-x-hidden flex items-center">
-            {/* macOS traffic lights spacing */}
-            <div className="pl-20" />
-
-            {/* Tabs */}
-            <div className="flex-1 overflow-x-auto flex">
-                {tabs.map(tab => (
-                    <TabItem
-                        key={tab.id}
-                        id={tab.id}
-                        title={tab.title}
-                        favicon={getFavicon(tab.url)}
-                        isActive={tab.isActive}
-                        onClose={() => closeTab(tab.id)}
-                        onActivate={() => switchTab(tab.id)}
-                    />
-                ))}
-            </div>
-
-            {/* Add Tab Button */}
-            <div className="pl-1 pr-2">
-                <TabBarButton
-                    Icon={Plus}
-                    onClick={handleCreateTab}
-                />
+        <div className="group/tabbar app-region-no-drag flex-1 h-full min-h-0 min-w-0 overflow-x-hidden flex items-center">
+            <div className="pl-20 shrink-0" />
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden">
+                {/* Width follows tabs; does not grow—so + stays next to last tab */}
+                <div className="flex min-w-0 max-w-full shrink overflow-x-auto">
+                    {tabs.map(tab => (
+                        <TabItem
+                            key={tab.id}
+                            id={tab.id}
+                            title={tab.title}
+                            favicon={getFavicon(tab.url)}
+                            isActive={tab.isActive}
+                            onClose={() => closeTab(tab.id)}
+                            onActivate={() => switchTab(tab.id)}
+                        />
+                    ))}
+                </div>
+                <div
+                    className={cn(
+                        'shrink-0 pl-1 pr-1 opacity-0 transition-opacity duration-200 ease-out',
+                        'group-hover/tabbar:opacity-100'
+                    )}
+                >
+                    <TabBarButton Icon={Plus} onClick={handleCreateTab} />
+                </div>
+                <div className="min-w-0 flex-1" aria-hidden />
             </div>
         </div>
     )

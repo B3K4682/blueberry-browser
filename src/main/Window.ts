@@ -118,9 +118,7 @@ export class Window {
         }
       }
     }
-    const tab = this.createTab(url);
-    this.switchActiveTab(tab.id);
-    return tab;
+    return this.createTab(url);
   }
 
   private extractHostname(url: string): string {
@@ -163,11 +161,7 @@ export class Window {
     // Subscribe to navigation events
     this._ritualCollector.attachTab(tab);
 
-    if (this.tabsMap.size === 1) {
-      this.switchActiveTab(tabId);
-    } else {
-      tab.hide();
-    }
+    this.switchActiveTab(tabId);
 
     // Keep the ritual surfaces visually on top of newly added tabs.
     this._ritual.bringToFront();

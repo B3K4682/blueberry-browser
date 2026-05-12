@@ -8,7 +8,7 @@ export const TopBarApp: React.FC = () => {
     return (
         <BrowserProvider>
             <div className="flex flex-col select-none">
-                <div className="w-full h-10 pr-2 flex items-center app-region-drag bg-muted dark:bg-muted">
+                <div className="w-full h-10 pr-2 flex items-center app-region-no-drag bg-muted dark:bg-muted">
                     <TabBar />
                 </div>
 
