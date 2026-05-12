@@ -20,6 +20,9 @@ const INTERNAL_URL_PREFIXES = [
   "file://",
 ];
 
+// Google domain ignored, bcos it's a default domain
+const IGNORED_DOMAINS = new Set<string>(["google.com"]);
+
 // Minimum partial shape passed to `emit`.
 interface PartialEvent {
   type: WorkflowEventType;
@@ -33,6 +36,7 @@ export class RitualCollector {
   private readonly ritualView: WebContentsView;
   private readonly debouncers = new Map<string, NodeJS.Timeout>();
   private readonly detachFns = new Map<string, () => void>();
+  private readonly lastDomainPerTab = new Map<string, string>();
   private readonly queue: WorkflowEvent[] = [];
   private readonly readyListener: () => void;
   private rendererReady = false;
@@ -71,6 +75,7 @@ export class RitualCollector {
       this.detachFns.delete(tabId);
     }
     this.clearDebouncer(tabId);
+    this.lastDomainPerTab.delete(tabId);
 
     // ? This is here, bcos the tab_close won't get Tab object
     this.emit({
@@ -108,6 +113,7 @@ export class RitualCollector {
     this.detachFns.clear();
     this.debouncers.forEach((timer) => clearTimeout(timer));
     this.debouncers.clear();
+    this.lastDomainPerTab.clear();
     this.queue.length = 0;
   }
 
@@ -144,6 +150,11 @@ export class RitualCollector {
     this.clearDebouncer(tab.id);
     const timer = setTimeout(() => {
       this.debouncers.delete(tab.id);
+
+      const domain = this.extractDomain(url);
+      if (!domain) return;
+      if (this.lastDomainPerTab.get(tab.id) === domain) return;
+
       this.emit({
         type: "navigation",
         tabId: tab.id,
@@ -184,6 +195,8 @@ export class RitualCollector {
     const domain = this.extractDomain(partial.url);
     if (partial.type !== "tab_close" && !domain) return;
 
+    if (domain && IGNORED_DOMAINS.has(domain)) return;
+
     const event: WorkflowEvent = {
       id: randomUUID(),
       timestamp: Date.now(),
@@ -194,6 +207,10 @@ export class RitualCollector {
       tabId: partial.tabId,
       sessionId: this.sessionId,
     };
+
+    if (event.type !== "tab_close" && domain) {
+      this.lastDomainPerTab.set(partial.tabId, domain);
+    }
 
     this.dispatch(event);
   }
